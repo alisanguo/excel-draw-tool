@@ -2,6 +2,13 @@
 
 ## [未发布]
 
+### 修复问题 (2026-01-18)
+- 🐛 **修复GitHub Actions构建失败** ✅
+  - 更新 `actions/upload-artifact` 从 v3 到 v4
+  - 更新 `actions/setup-python` 从 v4 到 v5
+  - 更新 `softprops/action-gh-release` 从 v1 到 v2
+  - 解决了 v3 artifact actions 弃用导致的构建失败问题
+
 ### 新增功能
 - ✅ **GitHub Actions集成**：自动构建Windows、macOS、Linux三个平台的可执行文件
 - ✅ **一键部署脚本**：`init_git.sh` 帮助快速推送到GitHub
