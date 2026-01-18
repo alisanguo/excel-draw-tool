@@ -1,0 +1,12 @@
+# 最小化构建依赖，减小打包体积
+Flask==3.0.0
+pandas==2.2.0
+openpyxl==3.1.2
+Werkzeug==3.0.1
+
+# 不包含以下可选依赖:
+# - matplotlib (不需要)
+# - scipy (不需要)
+# - jupyter (不需要)
+# - 其他可视化库 (我们使用ECharts)
+

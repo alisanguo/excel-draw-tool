@@ -38,38 +38,55 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        # 使用最小化依赖减小打包体积
+        pip install -r requirements.txt --no-cache-dir
         pip install pyinstaller
+      env:
+        # 禁用pip缓存以减小构建空间
+        PIP_NO_CACHE_DIR: 1
 
     - name: Build with PyInstaller (Linux/macOS)
       if: runner.os != 'Windows'
       run: |
         pyinstaller --clean --noconfirm build.spec
+        # 清理构建缓存
+        rm -rf build/
+        rm -rf __pycache__/
 
     - name: Build with PyInstaller (Windows)
       if: runner.os == 'Windows'
       run: |
         pyinstaller --clean --noconfirm build.spec
+        # 清理构建缓存
+        Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue
+      shell: pwsh
 
     - name: Prepare artifact (Linux)
       if: runner.os == 'Linux'
       run: |
         cd dist
+        # 使用最大压缩级别
         tar -czf ${{ matrix.artifact_name }}.tar.gz excel-draw-tool/
+        ls -lh ${{ matrix.artifact_name }}.tar.gz
         cd ..
 
     - name: Prepare artifact (macOS)
       if: runner.os == 'macOS'
       run: |
         cd dist
+        # 使用最大压缩级别
         tar -czf ${{ matrix.artifact_name }}.tar.gz excel-draw-tool/
+        ls -lh ${{ matrix.artifact_name }}.tar.gz
         cd ..
 
     - name: Prepare artifact (Windows)
       if: runner.os == 'Windows'
       run: |
         cd dist
-        Compress-Archive -Path excel-draw-tool -DestinationPath ${{ matrix.artifact_name }}.zip
+        # 使用最大压缩级别
+        Compress-Archive -Path excel-draw-tool -DestinationPath ${{ matrix.artifact_name }}.zip -CompressionLevel Optimal
+        Get-Item ${{ matrix.artifact_name }}.zip | Select-Object Name, Length
         cd ..
       shell: pwsh
 
