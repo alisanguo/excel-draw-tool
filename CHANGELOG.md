@@ -2,7 +2,12 @@
 
 ## [未发布]
 
-### Windows DLL加载失败修复 (2026-01-18)
+### Windows打包问题修复 (2026-01-18)
+- 🐛 **修复ModuleNotFoundError: urllib3** ✅ **严重Bug**
+  - 错误：`ModuleNotFoundError: No module named 'urllib3'`
+  - 根本原因：excludes列表过度排除了必要模块
+  - 解决方案：添加urllib3等依赖到hiddenimports，减少excludes
+  
 - 🐛 **修复Python DLL无法加载的问题** ✅ **严重Bug**
   - 错误：`[PYI-16688:ERROR] Failed to load Python DLL python311.dll`
   - 根本原因：PyInstaller的strip和UPX压缩破坏了DLL
