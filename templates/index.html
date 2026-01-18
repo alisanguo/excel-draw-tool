@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel缺陷数据统计分析工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .module-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .module-section.show {
+            display: block;
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .module-header h3 {
+            color: #333;
+            font-size: 18px;
+        }
+
+        .module-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .module-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .module-item input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .module-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .charts-section {
+            display: none;
+        }
+
+        .charts-section.show {
+            display: block;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .chart {
+            width: 100%;
+            height: 400px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-left: 4px solid #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Excel缺陷数据统计分析工具</h1>
+            <p class="subtitle">上传Excel文件，选择缺陷模块，自动生成统计图表</p>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div>点击或拖拽文件到此处上传</div>
+                <div style="color: #999; font-size: 14px; margin-top: 10px;">支持 .xlsx 格式的Excel文件</div>
+                <input type="file" id="fileInput" accept=".xlsx">
+                <button type="button" class="btn" onclick="document.getElementById('fileInput').click()">
+                    选择文件
+                </button>
+            </div>
+        </div>
+
+        <!-- 模块选择区域 -->
+        <div class="module-section" id="moduleSection">
+            <div class="module-header">
+                <h3>🔍 选择缺陷模块（已选择 <span id="selectedCount">0</span> 个）</h3>
+                <div>
+                    <button class="btn" id="selectAllBtn" onclick="selectAll()">全选</button>
+                    <button class="btn" id="deselectAllBtn" onclick="deselectAll()">取消全选</button>
+                    <button class="btn" onclick="generateCharts()">生成图表</button>
+                </div>
+            </div>
+            <div id="moduleList" class="module-list"></div>
+        </div>
+
+        <!-- 加载提示 -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>正在处理数据，请稍候...</div>
+        </div>
+
+        <!-- 图表展示区域 -->
+        <div class="charts-section" id="chartsSection">
+            <div class="chart-row">
+                <!-- 图表1: 不同状态下的缺陷数量统计 -->
+                <div class="chart-container">
+                    <div class="chart-title">不同状态下的缺陷数量统计</div>
+                    <div id="chart1" class="chart"></div>
+                </div>
+
+                <!-- 图表2: 缺陷分析归类统计 -->
+                <div class="chart-container">
+                    <div class="chart-title">缺陷分析归类统计</div>
+                    <div id="chart2" class="chart"></div>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <!-- 图表3: 缺陷停留时长分析 -->
+                <div class="chart-container">
+                    <div class="chart-title">缺陷停留时长分析（待修复状态）</div>
+                    <div id="chart3" class="chart"></div>
+                </div>
+
+                <!-- 图表4: 每日新增/修复缺陷情况 -->
+                <div class="chart-container">
+                    <div class="chart-title">每日新增/修复缺陷情况</div>
+                    <div id="chart4" class="chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timestamp = null;
+        let modules = [];
+        let charts = {};
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const moduleSection = document.getElementById('moduleSection');
+        const moduleList = document.getElementById('moduleList');
+        const chartsSection = document.getElementById('chartsSection');
+        const loading = document.getElementById('loading');
+
+        // 文件选择事件
+        fileInput.addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                uploadFile(this.files[0]);
+            }
+        });
+
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.endsWith('.xlsx')) {
+                fileInput.files = files;
+                uploadFile(files[0]);
+            } else {
+                alert('请上传.xlsx格式的Excel文件');
+            }
+        });
+
+        // 上传文件
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            loading.classList.add('show');
+            chartsSection.classList.remove('show');
+            moduleSection.classList.remove('show');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                
+                if (data.error) {
+                    alert('错误: ' + data.error);
+                    return;
+                }
+
+                timestamp = data.timestamp;
+                modules = data.modules;
+
+                // 显示模块选择
+                displayModules(modules);
+                moduleSection.classList.add('show');
+
+                // 默认全选并生成图表
+                selectAll();
+                generateCharts();
+            })
+            .catch(error => {
+                loading.classList.remove('show');
+                alert('上传失败: ' + error);
+            });
+        }
+
+        // 显示模块列表
+        function displayModules(modules) {
+            moduleList.innerHTML = '';
+            modules.forEach(module => {
+                const item = document.createElement('div');
+                item.className = 'module-item';
+                item.innerHTML = `
+                    <input type="checkbox" id="module_${module}" value="${module}" checked onchange="updateSelectedCount()">
+                    <label for="module_${module}">${module}</label>
+                `;
+                moduleList.appendChild(item);
+            });
+            updateSelectedCount();
+        }
+
+        // 更新选中数量
+        function updateSelectedCount() {
+            const checked = document.querySelectorAll('.module-item input[type="checkbox"]:checked');
+            document.getElementById('selectedCount').textContent = checked.length;
+        }
+
+        // 全选
+        function selectAll() {
+            document.querySelectorAll('.module-item input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+            updateSelectedCount();
+        }
+
+        // 取消全选
+        function deselectAll() {
+            document.querySelectorAll('.module-item input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            updateSelectedCount();
+        }
+
+        // 生成图表
+        function generateCharts() {
+            const selectedModules = Array.from(
+                document.querySelectorAll('.module-item input[type="checkbox"]:checked')
+            ).map(cb => cb.value);
+
+            if (selectedModules.length === 0) {
+                alert('请至少选择一个模块');
+                return;
+            }
+
+            loading.classList.add('show');
+            chartsSection.classList.remove('show');
+
+            fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    timestamp: timestamp,
+                    modules: selectedModules
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                
+                if (data.error) {
+                    alert('错误: ' + data.error);
+                    return;
+                }
+
+                // 显示图表
+                chartsSection.classList.add('show');
+                renderCharts(data.stats);
+            })
+            .catch(error => {
+                loading.classList.remove('show');
+                alert('分析失败: ' + error);
+            });
+        }
+
+        // 渲染所有图表
+        function renderCharts(stats) {
+            // 图表1: 不同状态下的缺陷数量统计
+            renderStatusChart(stats.status_count || {});
+
+            // 图表2: 缺陷分析归类统计（饼图）
+            renderAnalysisTypeChart(stats.analysis_type_count || {});
+
+            // 图表3: 缺陷停留时长分析
+            renderStayDurationChart(stats.stay_duration || {});
+
+            // 图表4: 每日新增/修复缺陷情况
+            renderDailyStatsChart(stats.daily_stats || {});
+        }
+
+        // 图表1: 状态统计柱状图
+        function renderStatusChart(data) {
+            const chartDom = document.getElementById('chart1');
+            if (!charts.chart1) {
+                charts.chart1 = echarts.init(chartDom);
+            }
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: Object.keys(data),
+                    axisLabel: {
+                        interval: 0,
+                        rotate: 30
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '缺陷数量'
+                },
+                series: [{
+                    name: '缺陷数量',
+                    type: 'bar',
+                    data: Object.values(data),
+                    itemStyle: {
+                        color: '#667eea'
+                    },
+                    label: {
+                        show: true,
+                        position: 'top'
+                    }
+                }]
+            };
+
+            charts.chart1.setOption(option);
+        }
+
+        // 图表2: 缺陷分析类型饼图
+        function renderAnalysisTypeChart(data) {
+            const chartDom = document.getElementById('chart2');
+            if (!charts.chart2) {
+                charts.chart2 = echarts.init(chartDom);
+            }
+
+            const pieData = Object.keys(data).map(key => ({
+                name: key,
+                value: data[key]
+            }));
+
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                },
+                legend: {
+                    orient: 'vertical',
+                    right: 10,
+                    top: 'center'
+                },
+                series: [{
+                    name: '缺陷分析类型',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 10,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: true,
+                        formatter: '{b}: {d}%'
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: 16,
+                            fontWeight: 'bold'
+                        }
+                    },
+                    data: pieData
+                }]
+            };
+
+            charts.chart2.setOption(option);
+        }
+
+        // 图表3: 缺陷停留时长分析
+        function renderStayDurationChart(data) {
+            const chartDom = document.getElementById('chart3');
+            if (!charts.chart3) {
+                charts.chart3 = echarts.init(chartDom);
+            }
+
+            // 按天数排序
+            const sortedData = Object.keys(data)
+                .map(k => parseInt(k))
+                .sort((a, b) => a - b)
+                .map(k => ({
+                    days: k,
+                    count: data[k.toString()]
+                }));
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: '{b}天: {c}个缺陷'
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: sortedData.map(d => d.days + '天'),
+                    name: '停留天数'
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '缺陷数量'
+                },
+                series: [{
+                    name: '缺陷数量',
+                    type: 'bar',
+                    data: sortedData.map(d => d.count),
+                    itemStyle: {
+                        color: '#ff9800'
+                    },
+                    label: {
+                        show: true,
+                        position: 'top'
+                    }
+                }]
+            };
+
+            charts.chart3.setOption(option);
+        }
+
+        // 图表4: 每日新增/修复缺陷情况
+        function renderDailyStatsChart(data) {
+            const chartDom = document.getElementById('chart4');
+            if (!charts.chart4) {
+                charts.chart4 = echarts.init(chartDom);
+            }
+
+            const dailyNew = data.daily_new || {};
+            const dailyFixed = data.daily_fixed || {};
+
+            // 获取所有日期并排序
+            const allDates = new Set([...Object.keys(dailyNew), ...Object.keys(dailyFixed)]);
+            const sortedDates = Array.from(allDates).sort();
+
+            const newData = sortedDates.map(date => dailyNew[date] || 0);
+            const fixedData = sortedDates.map(date => dailyFixed[date] || 0);
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['每日新增', '每日修复'],
+                    top: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: sortedDates,
+                    axisLabel: {
+                        interval: 'auto',
+                        rotate: 30
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '缺陷数量'
+                },
+                series: [
+                    {
+                        name: '每日新增',
+                        type: 'line',
+                        data: newData,
+                        smooth: true,
+                        itemStyle: {
+                            color: '#667eea'
+                        },
+                        areaStyle: {
+                            opacity: 0.3
+                        }
+                    },
+                    {
+                        name: '每日修复',
+                        type: 'line',
+                        data: fixedData,
+                        smooth: true,
+                        itemStyle: {
+                            color: '#4caf50'
+                        },
+                        areaStyle: {
+                            opacity: 0.3
+                        }
+                    }
+                ]
+            };
+
+            charts.chart4.setOption(option);
+        }
+
+        // 窗口大小改变时重新渲染图表
+        window.addEventListener('resize', function() {
+            Object.values(charts).forEach(chart => {
+                if (chart) chart.resize();
+            });
+        });
+    </script>
+</body>
+</html>
