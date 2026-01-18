@@ -60,6 +60,7 @@ jobs:
         # 将Windows使用说明复制到输出目录
         Copy-Item "README_Windows.txt" "dist/excel-draw-tool/"
         Copy-Item "Windows使用说明.md" "dist/excel-draw-tool/"
+        Copy-Item "START_HERE.txt" "dist/excel-draw-tool/" -ErrorAction SilentlyContinue
         # 清理构建缓存
         Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue

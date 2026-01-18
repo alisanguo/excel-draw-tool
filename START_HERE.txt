@@ -1,0 +1,102 @@
+====================================================================
+          Excel Defect Data Analysis Tool - Windows
+====================================================================
+
+QUICK START:
+
+1. Extract all files to the same directory
+2. Double-click "start_debug.bat" (Recommended for first use)
+   OR "start.bat" (Simple mode)
+
+IMPORTANT: Use English filename versions (.bat files without Chinese)
+- start_debug.bat  <-- Recommended (shows detailed info)
+- start.bat        <-- Simple launcher
+
+====================================================================
+
+IF YOU SEE ERROR MESSAGES:
+
+* Chinese character encoding issue?
+  -> Use "start.bat" or "start_debug.bat" (English filenames)
+  -> These files are more compatible with all Windows systems
+
+* Port 5000 already in use?
+  -> The program will automatically try ports 5001-5009
+  -> Or close other programs using port 5000
+
+* Program window closes immediately?
+  -> Use "start_debug.bat" to see detailed error messages
+  -> Check the "logs" directory for log files
+
+====================================================================
+
+HOW TO USE:
+
+1. The program will start automatically
+2. Your browser will open showing the web interface
+3. If browser doesn't open, manually visit: http://localhost:5000
+4. Click "Choose File" to upload Excel data
+5. Select defect modules to analyze
+6. View the generated charts
+
+====================================================================
+
+SAMPLE DATA:
+
+A sample data file is included: sample_defect_data.xlsx
+You can use it to test the tool
+
+====================================================================
+
+FILE DESCRIPTIONS:
+
+- start.bat                Simple launcher (English, Recommended)
+- start_debug.bat          Debug launcher (English, Recommended)
+- excel-draw-tool.exe      Main program
+- README_Windows.txt       Quick start guide (English/Chinese)
+- Windows使用说明.md        Detailed manual (Chinese)
+- sample_defect_data.xlsx  Sample data file
+- templates/               HTML templates
+- static/                  Static resources (charts library)
+- logs/                    Log directory (created automatically)
+
+Alternative launchers (may have encoding issues on some systems):
+- 启动.bat                  Simple launcher (Chinese)
+- 调试模式启动.bat          Debug launcher (Chinese)
+
+====================================================================
+
+TROUBLESHOOTING:
+
+Q: Window closes immediately?
+A: Use "start_debug.bat" to see error messages
+
+Q: Port occupied error?
+A: Program auto-switches to ports 5001-5009
+
+Q: Firewall warning?
+A: Click "Allow access" - program only runs locally
+
+Q: Chinese characters display as garbled text?
+A: Use "start.bat" or "start_debug.bat" (English filenames)
+
+Q: How to stop the program?
+A: Press Ctrl+C in the console window, or close the window
+
+====================================================================
+
+TECHNICAL INFO:
+
+- Fully offline capable, no internet required
+- No Python or dependencies installation needed
+- Data processed locally only, never uploaded
+- Default port: 5000 (auto-switches to 5001-5009 if needed)
+
+====================================================================
+
+For detailed instructions, see:
+- README_Windows.txt       (English/Chinese quick guide)
+- Windows使用说明.md        (Chinese detailed manual)
+
+====================================================================
+
