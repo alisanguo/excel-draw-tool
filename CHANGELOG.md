@@ -2,6 +2,13 @@
 
 ## [未发布]
 
+### Windows DLL加载失败修复 (2026-01-18)
+- 🐛 **修复Python DLL无法加载的问题** ✅ **严重Bug**
+  - 错误：`[PYI-16688:ERROR] Failed to load Python DLL python311.dll`
+  - 根本原因：PyInstaller的strip和UPX压缩破坏了DLL
+  - 解决方案：禁用strip和upx优化，确保DLL完整性
+  - 代价：包体积会增大，但稳定性和兼容性大幅提升
+
 ### Windows bat编码问题修复 (2026-01-18)
 - 🐛 **修复bat文件中文编码导致的启动失败** ✅ **重要**
   - 创建纯ASCII版本的启动脚本：`start.bat` 和 `start_debug.bat`

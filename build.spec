@@ -76,8 +76,8 @@ exe = EXE(
     name='excel-draw-tool',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,  # 启用strip减小体积
-    upx=True,
+    strip=False,  # 禁用strip，避免破坏DLL
+    upx=False,    # 禁用UPX，避免加载问题
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -91,13 +91,8 @@ coll = COLLECT(
     a.binaries,
     a.zipfiles,
     a.datas,
-    strip=True,  # 启用strip减小体积
-    upx=True,
-    upx_exclude=[
-        # UPX压缩可能导致某些DLL问题，排除关键文件
-        'vcruntime*.dll',
-        'python*.dll',
-    ],
+    strip=False,  # 禁用strip，确保DLL完整性
+    upx=False,    # 禁用UPX，确保兼容性
     name='excel-draw-tool',
 )
 
