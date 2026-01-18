@@ -57,6 +57,9 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         pyinstaller --clean --noconfirm build.spec
+        # 将Windows使用说明复制到输出目录
+        Copy-Item "README_Windows.txt" "dist/excel-draw-tool/"
+        Copy-Item "Windows使用说明.md" "dist/excel-draw-tool/"
         # 清理构建缓存
         Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue

@@ -209,5 +209,89 @@ def analyze_data():
         return jsonify({'error': f'分析数据时出错: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    import sys
+    import socket
+    import webbrowser
+    from datetime import datetime
+    
+    # 创建日志目录
+    log_dir = 'logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    # 设置日志文件
+    log_file = os.path.join(log_dir, f'app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+    
+    def log(message):
+        """记录日志到文件和控制台"""
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        log_message = f'[{timestamp}] {message}'
+        print(log_message)
+        try:
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(log_message + '\n')
+        except:
+            pass
+    
+    def check_port(port):
+        """检查端口是否可用"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        try:
+            result = sock.connect_ex(('127.0.0.1', port))
+            sock.close()
+            return result != 0  # 返回True表示端口可用
+        except:
+            return False
+    
+    try:
+        log('='*60)
+        log('Excel缺陷数据统计分析工具启动中...')
+        log('='*60)
+        
+        # 检查端口
+        port = 5000
+        if not check_port(port):
+            log(f'警告: 端口 {port} 已被占用，尝试使用其他端口...')
+            for test_port in range(5001, 5010):
+                if check_port(test_port):
+                    port = test_port
+                    log(f'使用端口: {port}')
+                    break
+            else:
+                log('错误: 无法找到可用端口 (5000-5009 都被占用)')
+                log('请关闭其他占用端口的程序后重试')
+                input('\n按回车键退出...')
+                sys.exit(1)
+        
+        log(f'启动Web服务器...')
+        log(f'访问地址: http://localhost:{port}')
+        log(f'日志文件: {log_file}')
+        log('='*60)
+        log('服务器运行中... 按 Ctrl+C 停止服务')
+        log('='*60)
+        
+        # 自动打开浏览器
+        try:
+            webbrowser.open(f'http://localhost:{port}')
+            log('已自动打开浏览器')
+        except:
+            log('无法自动打开浏览器，请手动访问上述地址')
+        
+        # 启动Flask应用
+        app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False)
+        
+    except KeyboardInterrupt:
+        log('\n服务器已停止')
+    except Exception as e:
+        log(f'错误: {str(e)}')
+        log(f'详细错误信息: {repr(e)}')
+        import traceback
+        log('完整错误堆栈:')
+        log(traceback.format_exc())
+        log('='*60)
+        log('程序遇到错误，请查看上述日志信息')
+        log(f'日志已保存到: {log_file}')
+        input('\n按回车键退出...')
+        sys.exit(1)
 

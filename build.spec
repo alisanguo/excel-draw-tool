@@ -10,6 +10,8 @@ a = Analysis(
         ('templates', 'templates'),
         ('static', 'static'),
         ('sample_defect_data.xlsx', '.'),
+        ('启动.bat', '.'),
+        ('调试模式启动.bat', '.'),
     ],
     hiddenimports=[
         'openpyxl',
