@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel缺陷数据统计分析工具</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- 使用本地ECharts库，支持离线使用 -->
+    <script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
     <style>
         * {
             margin: 0;
@@ -317,6 +318,16 @@
     </div>
 
     <script>
+        // 检查ECharts是否加载成功
+        window.addEventListener('load', function() {
+            if (typeof echarts === 'undefined') {
+                alert('图表库加载失败！\n\n可能原因：\n1. 网络连接问题\n2. 防火墙阻止\n3. CDN访问受限\n\n请检查网络连接后刷新页面，或联系管理员。');
+                console.error('ECharts library failed to load');
+            } else {
+                console.log('ECharts loaded successfully, version:', echarts.version);
+            }
+        });
+
         let timestamp = null;
         let modules = [];
         let charts = {};
@@ -495,6 +506,12 @@
 
         // 图表1: 状态统计柱状图
         function renderStatusChart(data) {
+            if (typeof echarts === 'undefined') {
+                console.error('ECharts is not loaded');
+                alert('图表库未加载，无法显示图表。请刷新页面重试。');
+                return;
+            }
+            
             const chartDom = document.getElementById('chart1');
             if (!charts.chart1) {
                 charts.chart1 = echarts.init(chartDom);
