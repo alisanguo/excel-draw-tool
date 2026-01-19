@@ -181,6 +181,11 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
+        .chart-full-width {
+            width: 100%;
+            flex: 1;
+        }
+
         .chart-title {
             font-size: 18px;
             font-weight: bold;
@@ -301,15 +306,17 @@
                 </div>
             </div>
 
+            <!-- 图表3: 缺陷停留时长分析 - 单独一行 -->
             <div class="chart-row">
-                <!-- 图表3: 缺陷停留时长分析 -->
-                <div class="chart-container">
+                <div class="chart-container chart-full-width">
                     <div class="chart-title">缺陷停留时长分析（待修复状态）</div>
                     <div id="chart3" class="chart"></div>
                 </div>
+            </div>
 
-                <!-- 图表4: 每日新增/修复缺陷情况 -->
-                <div class="chart-container">
+            <!-- 图表4: 每日新增/修复缺陷情况 - 单独一行 -->
+            <div class="chart-row">
+                <div class="chart-container chart-full-width">
                     <div class="chart-title">每日新增/修复缺陷情况</div>
                     <div id="chart4" class="chart"></div>
                 </div>
@@ -517,25 +524,49 @@
                 charts.chart1 = echarts.init(chartDom);
             }
 
+            // 根据状态数量计算柱形宽度
+            const statusCount = Object.keys(data).length;
+            let barWidth = '50%';  // 默认宽度
+            let labelRotate = 30;
+            
+            if (statusCount <= 3) {
+                barWidth = '30%';  // 状态很少时，柱子相对窄
+                labelRotate = 0;   // 不旋转
+            } else if (statusCount <= 5) {
+                barWidth = '40%';
+                labelRotate = 15;
+            } else if (statusCount <= 8) {
+                barWidth = '50%';
+                labelRotate = 30;
+            } else {
+                barWidth = '60%';  // 状态很多时，柱子相对宽
+                labelRotate = 45;
+            }
+
             const option = {
                 tooltip: {
                     trigger: 'axis',
                     axisPointer: {
                         type: 'shadow'
-                    }
+                    },
+                    formatter: '{b}: {c}个缺陷'
                 },
                 grid: {
                     left: '3%',
                     right: '4%',
-                    bottom: '3%',
+                    bottom: '8%',
                     containLabel: true
                 },
                 xAxis: {
                     type: 'category',
                     data: Object.keys(data),
+                    name: '状态',
+                    nameLocation: 'center',
+                    nameGap: 30,
                     axisLabel: {
                         interval: 0,
-                        rotate: 30
+                        rotate: labelRotate,
+                        fontSize: statusCount > 8 ? 11 : 12
                     }
                 },
                 yAxis: {
@@ -546,12 +577,15 @@
                     name: '缺陷数量',
                     type: 'bar',
                     data: Object.values(data),
+                    barWidth: barWidth,  // 自适应柱形宽度
                     itemStyle: {
-                        color: '#667eea'
+                        color: '#667eea',
+                        borderRadius: [4, 4, 0, 0]  // 顶部圆角
                     },
                     label: {
                         show: true,
-                        position: 'top'
+                        position: 'top',
+                        fontSize: statusCount > 8 ? 10 : 12
                     }
                 }]
             };
@@ -644,10 +678,21 @@
                     count: data[k.toString()]
                 }));
 
+            // 根据数据量计算柱形宽度：数据少时柱子宽，数据多时柱子窄
+            const dataCount = sortedData.length;
+            let barWidth = '60%';  // 默认宽度
+            if (dataCount <= 5) {
+                barWidth = '40%';  // 数据很少时，柱子相对窄一些
+            } else if (dataCount <= 15) {
+                barWidth = '60%';  // 中等数据量
+            } else {
+                barWidth = '80%';  // 数据多时，柱子占更多空间
+            }
+
             const option = {
                 tooltip: {
                     trigger: 'axis',
-                    formatter: '{b}天: {c}个缺陷'
+                    formatter: '{b}: {c}个缺陷'
                 },
                 grid: {
                     left: '3%',
@@ -658,7 +703,11 @@
                 xAxis: {
                     type: 'category',
                     data: sortedData.map(d => d.days + '天'),
-                    name: '停留天数'
+                    name: '停留天数',
+                    axisLabel: {
+                        interval: dataCount > 20 ? 'auto' : 0,  // 数据多时自动间隔
+                        rotate: dataCount > 15 ? 30 : 0  // 数据多时旋转标签
+                    }
                 },
                 yAxis: {
                     type: 'value',
@@ -668,12 +717,15 @@
                     name: '缺陷数量',
                     type: 'bar',
                     data: sortedData.map(d => d.count),
+                    barWidth: barWidth,  // 自适应柱形宽度
                     itemStyle: {
-                        color: '#ff9800'
+                        color: '#ff9800',
+                        borderRadius: [4, 4, 0, 0]  // 顶部圆角
                     },
                     label: {
                         show: true,
-                        position: 'top'
+                        position: 'top',
+                        fontSize: dataCount > 20 ? 10 : 12  // 数据多时字体小一些
                     }
                 }]
             };
@@ -698,9 +750,35 @@
             const newData = sortedDates.map(date => dailyNew[date] || 0);
             const fixedData = sortedDates.map(date => dailyFixed[date] || 0);
 
+            // 根据日期数量调整显示
+            const dateCount = sortedDates.length;
+            let labelInterval = 0;
+            let labelRotate = 30;
+            
+            if (dateCount > 30) {
+                labelInterval = Math.floor(dateCount / 15);  // 最多显示15个标签
+                labelRotate = 45;
+            } else if (dateCount > 15) {
+                labelInterval = Math.floor(dateCount / 10);  // 显示10个左右
+                labelRotate = 35;
+            } else if (dateCount > 7) {
+                labelInterval = 0;
+                labelRotate = 30;
+            } else {
+                labelInterval = 0;
+                labelRotate = 0;  // 数据少时不旋转
+            }
+
             const option = {
                 tooltip: {
-                    trigger: 'axis'
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        let result = params[0].name + '<br/>';
+                        params.forEach(item => {
+                            result += item.marker + item.seriesName + ': ' + item.value + '<br/>';
+                        });
+                        return result;
+                    }
                 },
                 legend: {
                     data: ['每日新增', '每日修复'],
@@ -709,16 +787,20 @@
                 grid: {
                     left: '3%',
                     right: '4%',
-                    bottom: '3%',
+                    bottom: '8%',
                     containLabel: true
                 },
                 xAxis: {
                     type: 'category',
                     boundaryGap: false,
                     data: sortedDates,
+                    name: '日期',
+                    nameLocation: 'center',
+                    nameGap: 25,
                     axisLabel: {
-                        interval: 'auto',
-                        rotate: 30
+                        interval: labelInterval,
+                        rotate: labelRotate,
+                        fontSize: dateCount > 20 ? 10 : 12
                     }
                 },
                 yAxis: {
