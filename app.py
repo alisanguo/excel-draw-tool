@@ -44,7 +44,19 @@ def analyze_defect_data(df, selected_modules=None):
     
     # 如果指定了模块过滤
     if selected_modules and '缺陷模块' in df.columns:
-        df = df[df['缺陷模块'].isin(selected_modules)]
+        # 检查是否选中了"（空）"选项
+        if '（空）' in selected_modules:
+            # 移除"（空）"选项，单独处理
+            selected_modules_copy = [m for m in selected_modules if m != '（空）']
+            # 筛选：模块在选中列表中 或 模块为空
+            if selected_modules_copy:
+                df = df[df['缺陷模块'].isin(selected_modules_copy) | df['缺陷模块'].isna()]
+            else:
+                # 只选中了"（空）"
+                df = df[df['缺陷模块'].isna()]
+        else:
+            # 没有选中"（空）"，按正常逻辑过滤
+            df = df[df['缺陷模块'].isin(selected_modules)]
     
     stats = {}
     current_date = datetime.now()
@@ -158,11 +170,19 @@ def analyze_defect_data(df, selected_modules=None):
 
 def get_module_list(df):
     """
-    获取缺陷模块列表（去重）
+    获取缺陷模块列表（去重），包含空值选项
     """
     if '缺陷模块' in df.columns:
+        # 获取非空模块
         modules = df['缺陷模块'].dropna().unique().tolist()
-        return sorted(modules)
+        modules = sorted(modules)
+        
+        # 检查是否有空模块，如果有则添加"（空）"选项
+        has_empty = df['缺陷模块'].isna().any()
+        if has_empty:
+            modules.insert(0, '（空）')  # 在列表开头添加空选项
+        
+        return modules
     return []
 
 # 存储上传的文件数据（临时存储）
