@@ -50,19 +50,22 @@ def analyze_defect_data(df, selected_modules=None):
         status_count = df.groupby('状态')['标题'].count().to_dict()
         stats['status_count'] = status_count
     
-    # 2. 缺陷停留时长（仅统计待修复状态的缺陷）
-    # 当前时间-创建时间，去掉时分秒计算，以天为单位
+    # 2. 缺陷停留时长
+    # 统计状态为待修复的缺陷（新建、修复中、待修复等已映射为待修复）
+    # 停留时长 = 当前时间所在天 - 创建时间所在天（单位：天）
     if '状态' in df.columns and '创建时间' in df.columns and '标题' in df.columns:
+        # 筛选状态为'待修复'的缺陷（包括映射后的新建、修复中等）
         pending_defects = df[df['状态'] == '待修复'].copy()
         if len(pending_defects) > 0:
+            # 解析创建时间为日期
             pending_defects['创建时间_dt'] = pd.to_datetime(pending_defects['创建时间'], errors='coerce')
-            # 计算停留天数
+            # 计算停留天数：当前日期 - 创建日期
             pending_defects['停留天数'] = pending_defects['创建时间_dt'].apply(
                 lambda x: (current_date.date() - x.date()).days if pd.notna(x) else None
             )
-            # 过滤掉None值
+            # 过滤掉None值（创建时间解析失败的）
             pending_defects = pending_defects[pending_defects['停留天数'].notna()]
-            # 按天数分组统计数量
+            # 按停留天数分组，统计每个天数对应的缺陷数量
             if len(pending_defects) > 0:
                 stay_duration = pending_defects.groupby('停留天数')['标题'].count().to_dict()
                 stats['stay_duration'] = {str(int(k)): int(v) for k, v in stay_duration.items()}
@@ -73,38 +76,46 @@ def analyze_defect_data(df, selected_modules=None):
     else:
         stats['stay_duration'] = {}
     
-    # 3. 每日新增/开发修复缺陷情况
+    # 3. 每日新增/修复缺陷情况
     daily_stats = {}
     
-    # 每日新增：根据创建时间，去掉时分秒进行统计缺陷数量
-    if '创建时间' in df.columns:
+    # 每日新增：创建时间为对应天的缺陷数量
+    if '创建时间' in df.columns and '标题' in df.columns:
         df_copy = df.copy()
+        # 将创建时间转换为日期（去掉时分秒）
         df_copy['创建日期'] = pd.to_datetime(df_copy['创建时间'], errors='coerce').dt.date
+        # 按创建日期分组统计缺陷数量
         daily_new = df_copy.groupby('创建日期')['标题'].count().to_dict()
-        daily_stats['daily_new'] = {str(k): v for k, v in sorted(daily_new.items()) if k is not None}
+        daily_stats['daily_new'] = {str(k): int(v) for k, v in sorted(daily_new.items()) if k is not None}
+    else:
+        daily_stats['daily_new'] = {}
     
-    # 修复缺陷：待验证状态缺陷【使用更新时间】+ 已关闭状态缺陷【使用完成时间】
+    # 每日修复：待验证状态且更新时间为对应天 + 已关闭状态且完成时间为对应天
     daily_fixed = {}
     
-    # 待验证状态 - 使用更新时间
-    if '状态' in df.columns and '更新时间' in df.columns:
+    # 1) 待验证状态的缺陷，使用更新时间
+    if '状态' in df.columns and '更新时间' in df.columns and '标题' in df.columns:
         pending_verify = df[df['状态'] == '待验证'].copy()
         if len(pending_verify) > 0:
+            # 将更新时间转换为日期
             pending_verify['更新日期'] = pd.to_datetime(pending_verify['更新时间'], errors='coerce').dt.date
+            # 按更新日期统计
             for date, count in pending_verify.groupby('更新日期')['标题'].count().items():
                 if pd.notna(date):
-                    daily_fixed[date] = daily_fixed.get(date, 0) + count
+                    daily_fixed[date] = daily_fixed.get(date, 0) + int(count)
     
-    # 已关闭状态 - 使用完成时间
-    if '状态' in df.columns and '完成时间' in df.columns:
+    # 2) 已关闭状态的缺陷，使用完成时间
+    if '状态' in df.columns and '完成时间' in df.columns and '标题' in df.columns:
         closed = df[df['状态'] == '已关闭'].copy()
         if len(closed) > 0:
+            # 将完成时间转换为日期
             closed['完成日期'] = pd.to_datetime(closed['完成时间'], errors='coerce').dt.date
+            # 按完成日期统计
             for date, count in closed.groupby('完成日期')['标题'].count().items():
                 if pd.notna(date):
-                    daily_fixed[date] = daily_fixed.get(date, 0) + count
+                    daily_fixed[date] = daily_fixed.get(date, 0) + int(count)
     
-    daily_stats['daily_fixed'] = {str(k): v for k, v in sorted(daily_fixed.items())}
+    daily_stats['daily_fixed'] = {str(k): int(v) for k, v in sorted(daily_fixed.items())}
     stats['daily_stats'] = daily_stats
     
     # 4. 缺陷分析归类统计（饼图）
