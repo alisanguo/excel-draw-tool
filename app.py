@@ -61,9 +61,10 @@ def analyze_defect_data(df, selected_modules=None):
     stats = {}
     current_date = datetime.now()
     
-    # 1. 不同状态下，统计缺陷数量【count(标题)】- 使用原始状态
-    if '原始状态' in df.columns and '标题' in df.columns:
-        status_count = df.groupby('原始状态')['标题'].count().to_dict()
+    # 1. 不同状态下，统计缺陷数量【count(标题)】
+    # 使用映射后状态，将新建、修复中、待修复合并显示为"待修复"
+    if '映射后状态' in df.columns and '标题' in df.columns:
+        status_count = df.groupby('映射后状态')['标题'].count().to_dict()
         stats['status_count'] = status_count
     elif '状态' in df.columns and '标题' in df.columns:
         status_count = df.groupby('状态')['标题'].count().to_dict()
@@ -156,13 +157,11 @@ def analyze_defect_data(df, selected_modules=None):
     
     # 4. 缺陷分析归类统计（饼图）
     if '缺陷分析类型' in df.columns and '标题' in df.columns:
-        # 过滤掉空值
-        df_analysis = df[df['缺陷分析类型'].notna()].copy()
-        if len(df_analysis) > 0:
-            analysis_count = df_analysis.groupby('缺陷分析类型')['标题'].count().to_dict()
-            stats['analysis_type_count'] = analysis_count
-        else:
-            stats['analysis_type_count'] = {}
+        df_analysis = df.copy()
+        # 将空值替换为"（空）"，以便在图表中显示
+        df_analysis['缺陷分析类型_显示'] = df_analysis['缺陷分析类型'].fillna('（空）')
+        analysis_count = df_analysis.groupby('缺陷分析类型_显示')['标题'].count().to_dict()
+        stats['analysis_type_count'] = analysis_count
     else:
         stats['analysis_type_count'] = {}
     

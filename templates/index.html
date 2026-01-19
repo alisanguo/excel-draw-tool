@@ -711,10 +711,15 @@
                         name: '每日新增',
                         type: 'line',
                         data: newData,
-                        smooth: true,
+                        smooth: false,  // 不使用平滑曲线，显示折线
                         itemStyle: {
                             color: '#667eea'
                         },
+                        lineStyle: {
+                            width: 2
+                        },
+                        symbol: 'circle',
+                        symbolSize: 6,
                         areaStyle: {
                             opacity: 0.3
                         }
@@ -723,10 +728,15 @@
                         name: '每日修复',
                         type: 'line',
                         data: fixedData,
-                        smooth: true,
+                        smooth: false,  // 不使用平滑曲线，显示折线
                         itemStyle: {
                             color: '#4caf50'
                         },
+                        lineStyle: {
+                            width: 2
+                        },
+                        symbol: 'circle',
+                        symbolSize: 6,
                         areaStyle: {
                             opacity: 0.3
                         }
