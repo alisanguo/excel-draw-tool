@@ -566,6 +566,25 @@
                 charts.chart2 = echarts.init(chartDom);
             }
 
+            console.log('缺陷分析类型数据:', data);
+
+            // 检查是否有数据
+            if (!data || Object.keys(data).length === 0) {
+                const option = {
+                    title: {
+                        text: '暂无数据',
+                        left: 'center',
+                        top: 'center',
+                        textStyle: {
+                            fontSize: 16,
+                            color: '#999'
+                        }
+                    }
+                };
+                charts.chart2.setOption(option);
+                return;
+            }
+
             const pieData = Object.keys(data).map(key => ({
                 name: key,
                 value: data[key]

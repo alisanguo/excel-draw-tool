@@ -156,11 +156,18 @@ def analyze_defect_data(df, selected_modules=None):
     stats['daily_stats'] = daily_stats
     
     # 4. 缺陷分析归类统计（饼图）
-    if '缺陷分析类型' in df.columns and '标题' in df.columns:
+    # 支持多种列名：缺陷分析类型、缺陷分析归类、缺陷分类
+    analysis_col = None
+    for col_name in ['缺陷分析类型', '缺陷分析归类', '缺陷分类']:
+        if col_name in df.columns:
+            analysis_col = col_name
+            break
+    
+    if analysis_col and '标题' in df.columns:
         df_analysis = df.copy()
         # 将空值替换为"（空）"，以便在图表中显示
-        df_analysis['缺陷分析类型_显示'] = df_analysis['缺陷分析类型'].fillna('（空）')
-        analysis_count = df_analysis.groupby('缺陷分析类型_显示')['标题'].count().to_dict()
+        df_analysis['分析类型_显示'] = df_analysis[analysis_col].fillna('（空）')
+        analysis_count = df_analysis.groupby('分析类型_显示')['标题'].count().to_dict()
         stats['analysis_type_count'] = analysis_count
     else:
         stats['analysis_type_count'] = {}

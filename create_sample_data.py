@@ -10,13 +10,14 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
 # 准备示例数据
-status_list = ['待解决', '处理中', '已解决', '已关闭', '重新打开']
+status_list = ['新建', '修复中', '待修复', '待验证', '已关闭']
 category_list = ['功能缺陷', '性能问题', '界面问题', '兼容性问题', '安全问题']
 level_list = ['A', 'B', 'C', 'D']  # 缺陷级别
 tag_list = ['【二阶段】', '【三阶段】', '【紧急】', '【常规】']  # 标签
-module_list = ['用户模块', '订单模块', '支付模块', '商品模块', '系统设置']
+module_list = ['用户模块', '订单模块', '支付模块', '商品模块', '系统设置', None, None]  # 包含空值
 handler_list = ['张三', '李四', '王五', '赵六', '钱七']
 reason_list = ['需求理解偏差', '代码逻辑错误', '测试不充分', '环境配置问题', '第三方接口问题']
+analysis_type_list = ['功能', '数据', '数据', '功能', None]  # 缺陷分析类型，包含空值
 
 # 生成50条示例数据
 num_records = 50
@@ -40,9 +41,9 @@ for i in range(num_records):
     create_time = base_date + timedelta(days=create_days, hours=random.randint(8, 18), minutes=random.randint(0, 59))
     update_time = create_time + timedelta(hours=random.randint(1, 72))
     
-    # 如果已解决或已关闭，添加完成时间
+    # 如果已关闭，添加完成时间
     complete_time = None
-    if status in ['已解决', '已关闭']:
+    if status == '已关闭':
         complete_time = update_time + timedelta(hours=random.randint(1, 48))
     
     data.append({
@@ -58,8 +59,8 @@ for i in range(num_records):
         '责任原因': reason,
         '缺陷分类': category,
         '缺陷级别': level,
-        '缺陷模块': module,
-        '缺陷分析类型': random.choice(['A类', 'B类', 'C类'])
+        '缺陷模块': module if module else None,  # 可能为空
+        '缺陷分析类型': random.choice(analysis_type_list)  # 可能为空
     })
 
 # 创建DataFrame
