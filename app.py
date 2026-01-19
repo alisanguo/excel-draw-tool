@@ -24,10 +24,14 @@ STATUS_MAPPING = {
 def apply_status_mapping(df):
     """
     应用状态映射规则：新建、修复中、待修复 → 统一映射为待修复
+    创建映射后的状态列，保留原始状态列用于其他统计
     """
     if '状态' in df.columns:
-        df['原始状态'] = df['状态']
-        df['状态'] = df['状态'].map(lambda x: STATUS_MAPPING.get(x, x))
+        # 保留原始状态（用于状态统计、每日修复等）
+        if '原始状态' not in df.columns:
+            df['原始状态'] = df['状态']
+        # 创建映射后的状态列（用于缺陷停留时长统计）
+        df['映射后状态'] = df['原始状态'].map(lambda x: STATUS_MAPPING.get(x, x))
     return df
 
 def analyze_defect_data(df, selected_modules=None):
@@ -45,17 +49,22 @@ def analyze_defect_data(df, selected_modules=None):
     stats = {}
     current_date = datetime.now()
     
-    # 1. 不同状态下，统计缺陷数量【count(标题)】
-    if '状态' in df.columns and '标题' in df.columns:
+    # 1. 不同状态下，统计缺陷数量【count(标题)】- 使用原始状态
+    if '原始状态' in df.columns and '标题' in df.columns:
+        status_count = df.groupby('原始状态')['标题'].count().to_dict()
+        stats['status_count'] = status_count
+    elif '状态' in df.columns and '标题' in df.columns:
         status_count = df.groupby('状态')['标题'].count().to_dict()
         stats['status_count'] = status_count
+    else:
+        stats['status_count'] = {}
     
     # 2. 缺陷停留时长
     # 统计状态为待修复的缺陷（新建、修复中、待修复等已映射为待修复）
     # 停留时长 = 当前时间所在天 - 创建时间所在天（单位：天）
-    if '状态' in df.columns and '创建时间' in df.columns and '标题' in df.columns:
-        # 筛选状态为'待修复'的缺陷（包括映射后的新建、修复中等）
-        pending_defects = df[df['状态'] == '待修复'].copy()
+    if '映射后状态' in df.columns and '创建时间' in df.columns and '标题' in df.columns:
+        # 筛选映射后状态为'待修复'的缺陷（包括原始的新建、修复中等）
+        pending_defects = df[df['映射后状态'] == '待修复'].copy()
         if len(pending_defects) > 0:
             # 解析创建时间为日期
             pending_defects['创建时间_dt'] = pd.to_datetime(pending_defects['创建时间'], errors='coerce')
@@ -68,7 +77,8 @@ def analyze_defect_data(df, selected_modules=None):
             # 按停留天数分组，统计每个天数对应的缺陷数量
             if len(pending_defects) > 0:
                 stay_duration = pending_defects.groupby('停留天数')['标题'].count().to_dict()
-                stats['stay_duration'] = {str(int(k)): int(v) for k, v in stay_duration.items()}
+                # 转换为字符串键，方便JSON序列化
+                stats['stay_duration'] = {str(int(k)): int(v) for k, v in sorted(stay_duration.items())}
             else:
                 stats['stay_duration'] = {}
         else:
@@ -84,44 +94,65 @@ def analyze_defect_data(df, selected_modules=None):
         df_copy = df.copy()
         # 将创建时间转换为日期（去掉时分秒）
         df_copy['创建日期'] = pd.to_datetime(df_copy['创建时间'], errors='coerce').dt.date
-        # 按创建日期分组统计缺陷数量
-        daily_new = df_copy.groupby('创建日期')['标题'].count().to_dict()
-        daily_stats['daily_new'] = {str(k): int(v) for k, v in sorted(daily_new.items()) if k is not None}
+        # 按创建日期分组统计缺陷数量，过滤掉空日期
+        df_copy = df_copy[df_copy['创建日期'].notna()]
+        if len(df_copy) > 0:
+            daily_new = df_copy.groupby('创建日期')['标题'].count().to_dict()
+            # 按日期排序并格式化
+            daily_stats['daily_new'] = {k.strftime('%Y-%m-%d'): int(v) for k, v in sorted(daily_new.items())}
+        else:
+            daily_stats['daily_new'] = {}
     else:
         daily_stats['daily_new'] = {}
     
     # 每日修复：待验证状态且更新时间为对应天 + 已关闭状态且完成时间为对应天
+    # 使用原始状态列进行统计
     daily_fixed = {}
     
     # 1) 待验证状态的缺陷，使用更新时间
-    if '状态' in df.columns and '更新时间' in df.columns and '标题' in df.columns:
-        pending_verify = df[df['状态'] == '待验证'].copy()
+    status_col = '原始状态' if '原始状态' in df.columns else '状态'
+    if status_col in df.columns and '更新时间' in df.columns and '标题' in df.columns:
+        pending_verify = df[df[status_col] == '待验证'].copy()
         if len(pending_verify) > 0:
             # 将更新时间转换为日期
             pending_verify['更新日期'] = pd.to_datetime(pending_verify['更新时间'], errors='coerce').dt.date
-            # 按更新日期统计
-            for date, count in pending_verify.groupby('更新日期')['标题'].count().items():
-                if pd.notna(date):
-                    daily_fixed[date] = daily_fixed.get(date, 0) + int(count)
+            # 过滤掉空日期
+            pending_verify = pending_verify[pending_verify['更新日期'].notna()]
+            if len(pending_verify) > 0:
+                # 按更新日期统计
+                for date, count in pending_verify.groupby('更新日期')['标题'].count().items():
+                    date_str = date.strftime('%Y-%m-%d')
+                    daily_fixed[date_str] = daily_fixed.get(date_str, 0) + int(count)
     
     # 2) 已关闭状态的缺陷，使用完成时间
-    if '状态' in df.columns and '完成时间' in df.columns and '标题' in df.columns:
-        closed = df[df['状态'] == '已关闭'].copy()
+    if status_col in df.columns and '完成时间' in df.columns and '标题' in df.columns:
+        closed = df[df[status_col] == '已关闭'].copy()
         if len(closed) > 0:
             # 将完成时间转换为日期
             closed['完成日期'] = pd.to_datetime(closed['完成时间'], errors='coerce').dt.date
-            # 按完成日期统计
-            for date, count in closed.groupby('完成日期')['标题'].count().items():
-                if pd.notna(date):
-                    daily_fixed[date] = daily_fixed.get(date, 0) + int(count)
+            # 过滤掉空日期
+            closed = closed[closed['完成日期'].notna()]
+            if len(closed) > 0:
+                # 按完成日期统计
+                for date, count in closed.groupby('完成日期')['标题'].count().items():
+                    date_str = date.strftime('%Y-%m-%d')
+                    daily_fixed[date_str] = daily_fixed.get(date_str, 0) + int(count)
     
-    daily_stats['daily_fixed'] = {str(k): int(v) for k, v in sorted(daily_fixed.items())}
+    # 按日期排序
+    daily_stats['daily_fixed'] = {k: v for k, v in sorted(daily_fixed.items())}
     stats['daily_stats'] = daily_stats
     
     # 4. 缺陷分析归类统计（饼图）
-    if '缺陷分析类型' in df.columns:
-        analysis_count = df['缺陷分析类型'].value_counts().to_dict()
-        stats['analysis_type_count'] = analysis_count
+    if '缺陷分析类型' in df.columns and '标题' in df.columns:
+        # 过滤掉空值
+        df_analysis = df[df['缺陷分析类型'].notna()].copy()
+        if len(df_analysis) > 0:
+            analysis_count = df_analysis.groupby('缺陷分析类型')['标题'].count().to_dict()
+            stats['analysis_type_count'] = analysis_count
+        else:
+            stats['analysis_type_count'] = {}
+    else:
+        stats['analysis_type_count'] = {}
     
     return stats
 

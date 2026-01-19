@@ -87,11 +87,9 @@ jobs:
     - name: Prepare artifact (Windows)
       if: runner.os == 'Windows'
       run: |
-        cd dist
-        # 使用最大压缩级别
-        Compress-Archive -Path excel-draw-tool -DestinationPath ${{ matrix.artifact_name }}.zip -CompressionLevel Optimal
-        Get-Item ${{ matrix.artifact_name }}.zip | Select-Object Name, Length
-        cd ..
+        # 不需要手动压缩，直接让GitHub Actions处理
+        # 显示文件夹大小
+        Get-ChildItem -Path dist\excel-draw-tool -Recurse | Measure-Object -Property Length -Sum | Select-Object @{Name="Size(MB)";Expression={[math]::Round($_.Sum/1MB,2)}}
       shell: pwsh
 
     - name: Upload artifact (Linux/macOS)
@@ -106,7 +104,18 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
-        path: dist/${{ matrix.artifact_name }}.zip
+        path: dist/excel-draw-tool/
+        compression-level: 9
+
+    - name: Prepare Release Asset (Windows)
+      if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
+      run: |
+        cd dist
+        # 为Release创建zip文件（只在Release时需要）
+        Compress-Archive -Path excel-draw-tool\* -DestinationPath ${{ matrix.artifact_name }}.zip -CompressionLevel Optimal
+        Get-Item ${{ matrix.artifact_name }}.zip | Select-Object Name, Length
+        cd ..
+      shell: pwsh
 
     - name: Upload Release Asset (Linux/macOS)
       if: startsWith(github.ref, 'refs/tags/') && runner.os != 'Windows'
