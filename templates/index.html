@@ -13,16 +13,23 @@
             box-sizing: border-box;
         }
 
+        html {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
 
         .container {
             max-width: 1400px;
+            width: 100%;
             margin: 0 auto;
+            overflow-x: hidden;
         }
 
         .header {
@@ -161,6 +168,7 @@
 
         .charts-section {
             display: none;
+            overflow-x: hidden;
         }
 
         .charts-section.show {
@@ -179,11 +187,29 @@
             padding: 20px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
         }
 
         .chart-full-width {
             width: 100%;
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            grid-column: 1 / -1; /* 跨越整个grid行 */
+        }
+
+        /* 图表容器 - 不使用滚动条 */
+        .chart-scrollable {
+            overflow: hidden;
+            max-width: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .chart {
+            margin: 0 auto;
         }
 
         .chart-title {
@@ -309,8 +335,10 @@
             <!-- 图表3: 缺陷停留时长分析 - 单独一行 -->
             <div class="chart-row">
                 <div class="chart-container chart-full-width">
-                    <div class="chart-title">缺陷停留时长分析（待修复状态）</div>
-                    <div id="chart3" class="chart"></div>
+                    <div class="chart-title" id="chart3Title">缺陷停留时长分析（待修复状态）</div>
+                    <div class="chart-scrollable" id="chart3Container">
+                        <div id="chart3" class="chart"></div>
+                    </div>
                 </div>
             </div>
 
@@ -318,7 +346,9 @@
             <div class="chart-row">
                 <div class="chart-container chart-full-width">
                     <div class="chart-title">每日新增/修复缺陷情况</div>
-                    <div id="chart4" class="chart"></div>
+                    <div class="chart-scrollable" id="chart4Container">
+                        <div id="chart4" class="chart"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -678,15 +708,57 @@
                     count: data[k.toString()]
                 }));
 
-            // 根据数据量计算柱形宽度：数据少时柱子宽，数据多时柱子窄
+            // 计算待修复缺陷总数
+            const totalCount = sortedData.reduce((sum, item) => sum + item.count, 0);
+            
+            // 更新标题，显示总数
+            const titleElement = document.getElementById('chart3Title');
+            if (titleElement) {
+                titleElement.textContent = `缺陷停留时长分析（待修复状态） - 共${totalCount}个`;
+            }
+
             const dataCount = sortedData.length;
-            let barWidth = '60%';  // 默认宽度
+            
+            // 根据横坐标点位数量在容器内动态调整图表宽度
+            // 容器宽度100% = 图1+图2的总宽度
+            let chartWidth = '50%'; // 默认：图1的宽度
+            
+            if (dataCount > 20) {
+                // 大于20个点位：扩展到100%（图1+图2的总宽度）
+                chartWidth = '100%';
+            } else if (dataCount > 15) {
+                // 大于15个点位：扩展到66.67%（图1+图2总宽度的2/3）
+                chartWidth = '66.67%';
+            }
+            
+            chartDom.style.width = chartWidth;
+            
+            if (charts.chart3) {
+                charts.chart3.dispose();
+            }
+            charts.chart3 = echarts.init(chartDom);
+
+            // 根据数据量智能调整显示策略，图表拉长后有足够空间显示所有标签
+            let barWidth = '60%';
+            let labelInterval = 0;
+            let labelRotate = 0;
+            let labelFontSize = 11;
+            
             if (dataCount <= 5) {
-                barWidth = '40%';  // 数据很少时，柱子相对窄一些
+                barWidth = '40%';
+                labelRotate = 0;
+            } else if (dataCount <= 10) {
+                barWidth = '50%';
+                labelRotate = 0;
             } else if (dataCount <= 15) {
-                barWidth = '60%';  // 中等数据量
+                barWidth = '55%';
+                labelRotate = 30;
+            } else if (dataCount <= 25) {
+                barWidth = '60%';
+                labelRotate = 30;
             } else {
-                barWidth = '80%';  // 数据多时，柱子占更多空间
+                barWidth = '65%';
+                labelRotate = 35;
             }
 
             const option = {
@@ -695,18 +767,25 @@
                     formatter: '{b}: {c}个缺陷'
                 },
                 grid: {
-                    left: '3%',
-                    right: '4%',
-                    bottom: '3%',
-                    containLabel: true
+                    left: '60px',
+                    right: '40px',
+                    bottom: '70px',
+                    top: '40px'
                 },
                 xAxis: {
                     type: 'category',
                     data: sortedData.map(d => d.days + '天'),
                     name: '停留天数',
+                    nameLocation: 'middle',
+                    nameGap: 45,
+                    nameTextStyle: {
+                        fontSize: 13,
+                        fontWeight: 'bold'
+                    },
                     axisLabel: {
-                        interval: dataCount > 20 ? 'auto' : 0,  // 数据多时自动间隔
-                        rotate: dataCount > 15 ? 30 : 0  // 数据多时旋转标签
+                        interval: labelInterval,
+                        rotate: labelRotate,
+                        fontSize: labelFontSize
                     }
                 },
                 yAxis: {
@@ -717,15 +796,15 @@
                     name: '缺陷数量',
                     type: 'bar',
                     data: sortedData.map(d => d.count),
-                    barWidth: barWidth,  // 自适应柱形宽度
+                    barWidth: barWidth,
                     itemStyle: {
                         color: '#ff9800',
-                        borderRadius: [4, 4, 0, 0]  // 顶部圆角
+                        borderRadius: [4, 4, 0, 0]
                     },
                     label: {
                         show: true,
                         position: 'top',
-                        fontSize: dataCount > 20 ? 10 : 12  // 数据多时字体小一些
+                        fontSize: 11
                     }
                 }]
             };
@@ -750,23 +829,40 @@
             const newData = sortedDates.map(date => dailyNew[date] || 0);
             const fixedData = sortedDates.map(date => dailyFixed[date] || 0);
 
-            // 根据日期数量调整显示
             const dateCount = sortedDates.length;
-            let labelInterval = 0;
-            let labelRotate = 30;
             
-            if (dateCount > 30) {
-                labelInterval = Math.floor(dateCount / 15);  // 最多显示15个标签
-                labelRotate = 45;
+            // 根据横坐标点位数量在容器内动态调整图表宽度
+            // 容器宽度100% = 图1+图2的总宽度
+            let chartWidth = '50%'; // 默认：图1的宽度
+            
+            if (dateCount > 20) {
+                // 大于20个点位：扩展到100%（图1+图2的总宽度）
+                chartWidth = '100%';
             } else if (dateCount > 15) {
-                labelInterval = Math.floor(dateCount / 10);  // 显示10个左右
-                labelRotate = 35;
-            } else if (dateCount > 7) {
-                labelInterval = 0;
+                // 大于15个点位：扩展到66.67%（图1+图2总宽度的2/3）
+                chartWidth = '66.67%';
+            }
+            
+            chartDom.style.width = chartWidth;
+            
+            if (charts.chart4) {
+                charts.chart4.dispose();
+            }
+            charts.chart4 = echarts.init(chartDom);
+
+            // 根据日期数量智能调整显示策略，图表拉长后有足够空间显示所有标签
+            let labelRotate = 0;
+            let labelInterval = 0;
+            let labelFontSize = 10;
+            
+            if (dateCount <= 7) {
+                labelRotate = 0;
+            } else if (dateCount <= 15) {
+                labelRotate = 25;
+            } else if (dateCount <= 30) {
                 labelRotate = 30;
             } else {
-                labelInterval = 0;
-                labelRotate = 0;  // 数据少时不旋转
+                labelRotate = 35;
             }
 
             const option = {
@@ -785,10 +881,10 @@
                     top: 10
                 },
                 grid: {
-                    left: '3%',
-                    right: '4%',
-                    bottom: '8%',
-                    containLabel: true
+                    left: '60px',
+                    right: '40px',
+                    bottom: '70px',
+                    top: '50px'
                 },
                 xAxis: {
                     type: 'category',
@@ -796,11 +892,11 @@
                     data: sortedDates,
                     name: '日期',
                     nameLocation: 'center',
-                    nameGap: 25,
+                    nameGap: 45,
                     axisLabel: {
                         interval: labelInterval,
                         rotate: labelRotate,
-                        fontSize: dateCount > 20 ? 10 : 12
+                        fontSize: labelFontSize
                     }
                 },
                 yAxis: {
