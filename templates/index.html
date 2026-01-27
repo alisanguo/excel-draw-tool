@@ -304,7 +304,6 @@
                 <div>
                     <button class="btn" id="selectAllBtn" onclick="selectAll()">全选</button>
                     <button class="btn" id="deselectAllBtn" onclick="deselectAll()">取消全选</button>
-                    <button class="btn" onclick="generateCharts()">生成图表</button>
                 </div>
             </div>
             <div id="moduleList" class="module-list"></div>
@@ -365,11 +364,6 @@
                 <!-- 图表2: 缺陷分析归类统计 -->
                 <div class="chart-container">
                     <div class="chart-title" id="chart2Title">缺陷分析归类统计</div>
-                    <div id="downloadLinkContainer" style="display: none; text-align: center; margin-bottom: 10px;">
-                        <a id="downloadLink" href="#" class="btn" style="text-decoration: none; display: inline-block;">
-                            📥 下载带关键字归类的Excel文件
-                        </a>
-                    </div>
                     <div id="chart2" class="chart"></div>
                 </div>
             </div>
