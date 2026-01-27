@@ -943,12 +943,12 @@
                     trigger: 'item',
                     formatter: function(params) {
                         return params.seriesName + '<br/>' + 
-                               params.name + ': ' + params.value + ' (' + params.percent + '%)';
+                               params.name + ': ' + params.percent + '% (' + params.value + '个)';
                     }
                 },
                 legend: {
                     orient: 'vertical',
-                    right: 60,  // 距离右边60px，增加间距避免遮挡
+                    right: 20,  // 距离右边60px，增加间距避免遮挡
                     top: 'center',
                     itemGap: 12,
                     itemWidth: 14,
@@ -958,15 +958,15 @@
                     },
                     formatter: function(name) {
                         const item = pieData.find(d => d.name === name);
-                        return item ? name + ': ' + item.value + '个(' + item.percent + '%)' : name;
+                        return item ? name + ': ' + item.percent + '%(' + item.value + '个)' : name;
                     }
                 },
                 series: [{
                     name: '缺陷分析类型',
                     type: 'pie',
                     radius: ['40%', '70%'],
-                    center: ['35%', '50%'],  // 向左移动更多，为右侧图例留出更多空间
-                    avoidLabelOverlap: false,
+                    center: ['45%', '50%'],  // 居中偏右，为左右两侧标签留出空间
+                    avoidLabelOverlap: true,  // 启用标签重叠避免
                     itemStyle: {
                         borderRadius: 10,
                         borderColor: '#fff',
@@ -975,14 +975,15 @@
                     label: {
                         show: true,
                         formatter: function(params) {
-                            return params.name + ': ' + params.value + '个(' + params.percent + '%)';
+                            return params.name + ': ' + params.percent + '%(' + params.value + '个)';
                         },
-                        position: 'outside'
+                        position: 'outside',
+                        distanceToLabelLine: 5  // 标签到引导线的距离
                     },
                     labelLine: {
                         show: true,
-                        length: 15,
-                        length2: 10
+                        length: 20,  // 增加引导线长度，避免左侧遮挡
+                        length2: 15
                     },
                     emphasis: {
                         label: {
