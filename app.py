@@ -364,15 +364,19 @@ def analyze_data():
         classification_mode = data.get('classification_mode', 'manual')
         keywords = data.get('keywords', [])
         
-        # 如果是关键字匹配模式，先对原始完整数据进行关键字归类
+        # 生成统计数据（使用过滤后的数据进行图表统计）
+        stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
+        
+        # 如果是关键字匹配模式，对原始完整数据进行关键字归类并生成新文件
         if classification_mode == 'keyword' and keywords and '标题' in df_original.columns:
-            # 对原始完整数据进行关键字归类（不进行模块和状态过滤）
-            df_original['关键字归类'] = '其他'  # 默认归类为"其他"
+            # 对原始完整数据进行关键字归类（不进行模块和状态过滤，处理所有行）
+            df_with_keyword = df_original.copy()
+            df_with_keyword['关键字归类'] = '其他'  # 默认归类为"其他"
             
             # 对每一行进行关键字匹配
-            for idx in df_original.index:
+            for idx in df_with_keyword.index:
                 matched_keywords = []
-                title = str(df_original.loc[idx, '标题']) if pd.notna(df_original.loc[idx, '标题']) else ''
+                title = str(df_with_keyword.loc[idx, '标题']) if pd.notna(df_with_keyword.loc[idx, '标题']) else ''
                 
                 # 检查每个关键字是否匹配
                 for keyword in keywords:
@@ -383,16 +387,14 @@ def analyze_data():
                 
                 # 如果匹配到多个关键字，随机选择一个
                 if matched_keywords:
-                    df_original.loc[idx, '关键字归类'] = random.choice(matched_keywords)
+                    df_with_keyword.loc[idx, '关键字归类'] = random.choice(matched_keywords)
             
-            # 保存带关键字归类的原始完整数据到原文件
-            original_filepath = uploaded_data[timestamp]['filepath']
-            df_original.to_excel(original_filepath, index=False, engine='openpyxl')
-            # 更新存储的数据框
-            uploaded_data[timestamp]['dataframe'] = df_original
-        
-        # 生成统计数据（使用过滤后的数据进行图表统计）
-        stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
+            # 生成新文件，文件名包含时间戳
+            output_filename = f"defect_data_with_keyword_{timestamp}.xlsx"
+            output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+            df_with_keyword.to_excel(output_filepath, index=False, engine='openpyxl')
+            # 保存输出文件路径，供前端下载
+            stats['_output_excel_path'] = output_filename
         
         # 转换为JSON可序列化的格式（移除不能序列化的DataFrame）
         result_stats = {k: v for k, v in stats.items() if not k.startswith('_df_')}
@@ -404,9 +406,9 @@ def analyze_data():
             'filtered_records': len(df)
         }
         
-        # 如果是关键字匹配模式，标记文件已更新
-        if classification_mode == 'keyword' and keywords:
-            result['file_updated'] = True
+        # 如果有输出Excel文件，添加下载路径
+        if '_output_excel_path' in stats:
+            result['output_excel_path'] = stats['_output_excel_path']
         
         return jsonify(result)
         

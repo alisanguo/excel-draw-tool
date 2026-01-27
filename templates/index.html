@@ -365,6 +365,11 @@
                 <!-- 图表2: 缺陷分析归类统计 -->
                 <div class="chart-container">
                     <div class="chart-title" id="chart2Title">缺陷分析归类统计</div>
+                    <div id="downloadLinkContainer" style="display: none; text-align: center; margin-bottom: 10px;">
+                        <a id="downloadLink" href="#" class="btn" style="text-decoration: none; display: inline-block;">
+                            📥 下载带关键字归类的Excel文件
+                        </a>
+                    </div>
                     <div id="chart2" class="chart"></div>
                 </div>
             </div>
@@ -749,9 +754,11 @@
                 chartsSection.classList.add('show');
                 renderCharts(data.stats);
                 
-                // 如果使用关键字匹配模式，提示文件已更新
-                if (data.file_updated) {
-                    console.log('原文件已更新，已添加关键字归类列');
+                // 如果有关键字归类生成的Excel文件，显示下载链接
+                if (data.output_excel_path) {
+                    showDownloadLink(data.output_excel_path);
+                } else {
+                    hideDownloadLink();
                 }
             })
             .catch(error => {
