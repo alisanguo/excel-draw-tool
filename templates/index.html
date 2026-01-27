@@ -701,19 +701,18 @@
 
         // 显示下载链接
         function showDownloadLink(filename) {
-            const container = document.getElementById('downloadLinkContainer');
             const link = document.getElementById('downloadLink');
-            if (container && link) {
+            if (link) {
                 link.href = '/download/' + filename;
-                container.style.display = 'block';
+                link.style.display = 'inline-block';
             }
         }
 
         // 隐藏下载链接
         function hideDownloadLink() {
-            const container = document.getElementById('downloadLinkContainer');
-            if (container) {
-                container.style.display = 'none';
+            const link = document.getElementById('downloadLink');
+            if (link) {
+                link.style.display = 'none';
             }
         }
 
