@@ -346,8 +346,11 @@ def analyze_data():
         if not timestamp or timestamp not in uploaded_data:
             return jsonify({'error': '数据不存在或已过期'}), 400
         
-        # 获取存储的数据
-        df = uploaded_data[timestamp]['dataframe'].copy()
+        # 获取存储的原始数据（未过滤的完整数据）
+        df_original = uploaded_data[timestamp]['dataframe'].copy()
+        
+        # 用于图表统计的过滤后数据
+        df = df_original.copy()
         
         # 如果没有选择模块，使用全部模块
         if not selected_modules:
@@ -361,18 +364,35 @@ def analyze_data():
         classification_mode = data.get('classification_mode', 'manual')
         keywords = data.get('keywords', [])
         
-        # 生成统计数据
-        stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
-        
-        # 如果是关键字匹配模式，直接修改原文件，添加关键字归类列
-        if classification_mode == 'keyword' and keywords and '_df_with_keyword_classification' in stats:
-            df_with_classification = stats['_df_with_keyword_classification']
-            # 获取原始文件路径
+        # 如果是关键字匹配模式，先对原始完整数据进行关键字归类
+        if classification_mode == 'keyword' and keywords and '标题' in df_original.columns:
+            # 对原始完整数据进行关键字归类（不进行模块和状态过滤）
+            df_original['关键字归类'] = '其他'  # 默认归类为"其他"
+            
+            # 对每一行进行关键字匹配
+            for idx in df_original.index:
+                matched_keywords = []
+                title = str(df_original.loc[idx, '标题']) if pd.notna(df_original.loc[idx, '标题']) else ''
+                
+                # 检查每个关键字是否匹配
+                for keyword in keywords:
+                    if keyword and keyword.strip():
+                        keyword = keyword.strip()
+                        if keyword.lower() in title.lower():
+                            matched_keywords.append(keyword)
+                
+                # 如果匹配到多个关键字，随机选择一个
+                if matched_keywords:
+                    df_original.loc[idx, '关键字归类'] = random.choice(matched_keywords)
+            
+            # 保存带关键字归类的原始完整数据到原文件
             original_filepath = uploaded_data[timestamp]['filepath']
-            # 直接覆盖原文件，添加关键字归类列
-            df_with_classification.to_excel(original_filepath, index=False, engine='openpyxl')
+            df_original.to_excel(original_filepath, index=False, engine='openpyxl')
             # 更新存储的数据框
-            uploaded_data[timestamp]['dataframe'] = df_with_classification
+            uploaded_data[timestamp]['dataframe'] = df_original
+        
+        # 生成统计数据（使用过滤后的数据进行图表统计）
+        stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
         
         # 转换为JSON可序列化的格式（移除不能序列化的DataFrame）
         result_stats = {k: v for k, v in stats.items() if not k.startswith('_df_')}
