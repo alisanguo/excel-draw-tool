@@ -308,6 +308,16 @@
                 </div>
             </div>
             <div id="moduleList" class="module-list"></div>
+            
+            <!-- 状态选择区域（用于图表3筛选） -->
+            <div class="module-header" style="margin-top: 20px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+                <h3>📊 选择状态（用于图表3筛选，已选择 <span id="selectedStatusCount">0</span> 个）</h3>
+                <div>
+                    <button class="btn" id="selectAllStatusBtn" onclick="selectAllStatus()">全选</button>
+                    <button class="btn" id="deselectAllStatusBtn" onclick="deselectAllStatus()">取消全选</button>
+                </div>
+            </div>
+            <div id="statusList" class="module-list"></div>
         </div>
 
         <!-- 加载提示 -->
@@ -321,7 +331,7 @@
             <div class="chart-row">
                 <!-- 图表1: 不同状态下的缺陷数量统计 -->
                 <div class="chart-container">
-                    <div class="chart-title">不同状态下的缺陷数量统计</div>
+                    <div class="chart-title" id="chart1Title">不同状态下的缺陷数量统计</div>
                     <div id="chart1" class="chart"></div>
                 </div>
 
@@ -367,6 +377,7 @@
 
         let timestamp = null;
         let modules = [];
+        let statuses = [];
         let charts = {};
 
         const uploadArea = document.getElementById('uploadArea');
@@ -431,13 +442,17 @@
 
                 timestamp = data.timestamp;
                 modules = data.modules;
+                statuses = data.statuses || [];
 
                 // 显示模块选择
                 displayModules(modules);
+                // 显示状态选择
+                displayStatuses(statuses);
                 moduleSection.classList.add('show');
 
                 // 默认全选并生成图表
                 selectAll();
+                selectAllStatus();
                 generateCharts();
             })
             .catch(error => {
@@ -461,15 +476,38 @@
             updateSelectedCount();
         }
 
+        // 显示状态列表
+        function displayStatuses(statuses) {
+            const statusList = document.getElementById('statusList');
+            statusList.innerHTML = '';
+            statuses.forEach(status => {
+                const item = document.createElement('div');
+                item.className = 'module-item';
+                item.innerHTML = `
+                    <input type="checkbox" id="status_${status}" value="${status}" checked onchange="updateSelectedStatusCount()">
+                    <label for="status_${status}">${status}</label>
+                `;
+                statusList.appendChild(item);
+            });
+            updateSelectedStatusCount();
+        }
+
         // 更新选中数量
         function updateSelectedCount() {
-            const checked = document.querySelectorAll('.module-item input[type="checkbox"]:checked');
+            const checked = document.querySelectorAll('#moduleList .module-item input[type="checkbox"]:checked');
             document.getElementById('selectedCount').textContent = checked.length;
+        }
+
+        // 更新选中状态数量
+        function updateSelectedStatusCount() {
+            const statusList = document.getElementById('statusList');
+            const checked = statusList.querySelectorAll('input[type="checkbox"]:checked');
+            document.getElementById('selectedStatusCount').textContent = checked.length;
         }
 
         // 全选
         function selectAll() {
-            document.querySelectorAll('.module-item input[type="checkbox"]').forEach(cb => {
+            document.querySelectorAll('#moduleList .module-item input[type="checkbox"]').forEach(cb => {
                 cb.checked = true;
             });
             updateSelectedCount();
@@ -477,16 +515,38 @@
 
         // 取消全选
         function deselectAll() {
-            document.querySelectorAll('.module-item input[type="checkbox"]').forEach(cb => {
+            document.querySelectorAll('#moduleList .module-item input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
             });
             updateSelectedCount();
         }
 
+        // 全选状态
+        function selectAllStatus() {
+            const statusList = document.getElementById('statusList');
+            statusList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+            updateSelectedStatusCount();
+        }
+
+        // 取消全选状态
+        function deselectAllStatus() {
+            const statusList = document.getElementById('statusList');
+            statusList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            updateSelectedStatusCount();
+        }
+
         // 生成图表
         function generateCharts() {
             const selectedModules = Array.from(
-                document.querySelectorAll('.module-item input[type="checkbox"]:checked')
+                document.querySelectorAll('#moduleList .module-item input[type="checkbox"]:checked')
+            ).map(cb => cb.value);
+
+            const selectedStatuses = Array.from(
+                document.querySelectorAll('#statusList .module-item input[type="checkbox"]:checked')
             ).map(cb => cb.value);
 
             if (selectedModules.length === 0) {
@@ -504,7 +564,8 @@
                 },
                 body: JSON.stringify({
                     timestamp: timestamp,
-                    modules: selectedModules
+                    modules: selectedModules,
+                    statuses: selectedStatuses
                 })
             })
             .then(response => response.json())
@@ -552,6 +613,15 @@
             const chartDom = document.getElementById('chart1');
             if (!charts.chart1) {
                 charts.chart1 = echarts.init(chartDom);
+            }
+
+            // 计算总缺陷数
+            const totalCount = Object.values(data).reduce((sum, count) => sum + count, 0);
+            
+            // 更新标题显示总数
+            const titleElement = document.getElementById('chart1Title');
+            if (titleElement) {
+                titleElement.textContent = `不同状态下的缺陷数量统计 - 共${totalCount}个`;
             }
 
             // 根据状态数量计算柱形宽度
@@ -660,14 +730,21 @@
                     formatter: '{a} <br/>{b}: {c} ({d}%)'
                 },
                 legend: {
-                    orient: 'vertical',
-                    right: 10,
-                    top: 'center'
+                    orient: 'horizontal',
+                    bottom: 10,
+                    left: 'center',
+                    itemGap: 15,
+                    itemWidth: 14,
+                    itemHeight: 14,
+                    textStyle: {
+                        fontSize: 12
+                    }
                 },
                 series: [{
                     name: '缺陷分析类型',
                     type: 'pie',
                     radius: ['40%', '70%'],
+                    center: ['50%', '45%'],  // 向上移动，为底部图例留出空间
                     avoidLabelOverlap: false,
                     itemStyle: {
                         borderRadius: 10,
@@ -676,7 +753,13 @@
                     },
                     label: {
                         show: true,
-                        formatter: '{b}: {d}%'
+                        formatter: '{b}: {d}%',
+                        position: 'outside'
+                    },
+                    labelLine: {
+                        show: true,
+                        length: 15,
+                        length2: 10
                     },
                     emphasis: {
                         label: {

@@ -34,10 +34,15 @@ def apply_status_mapping(df):
         df['映射后状态'] = df['原始状态'].map(lambda x: STATUS_MAPPING.get(x, x))
     return df
 
-def analyze_defect_data(df, selected_modules=None):
+def analyze_defect_data(df, selected_modules=None, selected_statuses=None):
     """
     根据缺陷数据生成统计分析
     按照图片中的统计规则实现
+    
+    Args:
+        df: 数据框
+        selected_modules: 选中的模块列表
+        selected_statuses: 选中的状态列表
     """
     # 应用状态映射
     df = apply_status_mapping(df)
@@ -57,6 +62,12 @@ def analyze_defect_data(df, selected_modules=None):
         else:
             # 没有选中"（空）"，按正常逻辑过滤
             df = df[df['缺陷模块'].isin(selected_modules)]
+    
+    # 如果指定了状态过滤
+    if selected_statuses:
+        status_col = '原始状态' if '原始状态' in df.columns else '状态'
+        if status_col in df.columns:
+            df = df[df[status_col].isin(selected_statuses)]
     
     stats = {}
     current_date = datetime.now()
@@ -191,6 +202,18 @@ def get_module_list(df):
         return modules
     return []
 
+def get_status_list(df):
+    """
+    获取状态列表（去重），使用原始状态列
+    """
+    status_col = '原始状态' if '原始状态' in df.columns else '状态'
+    if status_col in df.columns:
+        # 获取非空状态
+        statuses = df[status_col].dropna().unique().tolist()
+        statuses = sorted(statuses)
+        return statuses
+    return []
+
 # 存储上传的文件数据（临时存储）
 uploaded_data = {}
 
@@ -222,20 +245,23 @@ def upload_file():
         # 读取Excel文件
         df = pd.read_excel(filepath)
         
-        # 获取模块列表
+        # 获取模块列表和状态列表
         modules = get_module_list(df)
+        statuses = get_status_list(df)
         
         # 存储数据（使用timestamp作为key）
         uploaded_data[timestamp] = {
             'filepath': filepath,
             'dataframe': df,
-            'modules': modules
+            'modules': modules,
+            'statuses': statuses
         }
         
         return jsonify({
             'success': True,
             'timestamp': timestamp,
             'modules': modules,
+            'statuses': statuses,
             'total_records': len(df)
         })
         
@@ -244,11 +270,12 @@ def upload_file():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_data():
-    """根据选择的模块分析数据并返回图表数据"""
+    """根据选择的模块和状态分析数据并返回图表数据"""
     try:
         data = request.json
         timestamp = data.get('timestamp')
         selected_modules = data.get('modules', [])
+        selected_statuses = data.get('statuses', [])
         
         if not timestamp or timestamp not in uploaded_data:
             return jsonify({'error': '数据不存在或已过期'}), 400
@@ -260,15 +287,20 @@ def analyze_data():
         if not selected_modules:
             selected_modules = uploaded_data[timestamp]['modules']
         
+        # 如果没有选择状态，使用全部状态
+        if not selected_statuses:
+            selected_statuses = uploaded_data[timestamp].get('statuses', [])
+        
         # 生成统计数据
-        stats = analyze_defect_data(df, selected_modules)
+        stats = analyze_defect_data(df, selected_modules, selected_statuses)
         
         # 转换为JSON可序列化的格式
         result = {
             'success': True,
             'stats': stats,
             'selected_modules': selected_modules,
-            'filtered_records': len(df[df['缺陷模块'].isin(selected_modules)]) if '缺陷模块' in df.columns else len(df)
+            'selected_statuses': selected_statuses,
+            'filtered_records': len(df)
         }
         
         return jsonify(result)
