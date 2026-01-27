@@ -364,15 +364,15 @@ def analyze_data():
         # 生成统计数据
         stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
         
-        # 如果是关键字匹配模式，保存带关键字归类的Excel文件
+        # 如果是关键字匹配模式，直接修改原文件，添加关键字归类列
         if classification_mode == 'keyword' and keywords and '_df_with_keyword_classification' in stats:
             df_with_classification = stats['_df_with_keyword_classification']
-            # 保存到uploads目录
-            output_filename = f"defect_data_with_keyword_{timestamp}.xlsx"
-            output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
-            df_with_classification.to_excel(output_filepath, index=False, engine='openpyxl')
-            # 保存输出文件路径，供前端下载
-            stats['_output_excel_path'] = output_filename
+            # 获取原始文件路径
+            original_filepath = uploaded_data[timestamp]['filepath']
+            # 直接覆盖原文件，添加关键字归类列
+            df_with_classification.to_excel(original_filepath, index=False, engine='openpyxl')
+            # 更新存储的数据框
+            uploaded_data[timestamp]['dataframe'] = df_with_classification
         
         # 转换为JSON可序列化的格式（移除不能序列化的DataFrame）
         result_stats = {k: v for k, v in stats.items() if not k.startswith('_df_')}
@@ -384,9 +384,9 @@ def analyze_data():
             'filtered_records': len(df)
         }
         
-        # 如果有输出Excel文件，添加下载路径
-        if '_output_excel_path' in stats:
-            result['output_excel_path'] = stats['_output_excel_path']
+        # 如果是关键字匹配模式，标记文件已更新
+        if classification_mode == 'keyword' and keywords:
+            result['file_updated'] = True
         
         return jsonify(result)
         
