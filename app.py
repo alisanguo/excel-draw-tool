@@ -64,10 +64,36 @@ def analyze_defect_data(df, selected_modules=None, selected_statuses=None):
             df = df[df['缺陷模块'].isin(selected_modules)]
     
     # 如果指定了状态过滤
+    # selected_statuses 是映射后的状态（如"待修复"），需要转换为原始状态进行筛选
     if selected_statuses:
+        # 创建反向映射：从映射后的状态找到所有对应的原始状态
+        reverse_mapping = {}
+        for original_status, mapped_status in STATUS_MAPPING.items():
+            if mapped_status not in reverse_mapping:
+                reverse_mapping[mapped_status] = []
+            reverse_mapping[mapped_status].append(original_status)
+        
+        # 将映射后的状态转换为原始状态列表
+        original_statuses = []
         status_col = '原始状态' if '原始状态' in df.columns else '状态'
+        
         if status_col in df.columns:
-            df = df[df[status_col].isin(selected_statuses)]
+            # 获取所有原始状态
+            all_original_statuses = df[status_col].dropna().unique().tolist()
+            
+            for mapped_status in selected_statuses:
+                if mapped_status in reverse_mapping:
+                    # 找到映射到这个状态的所有原始状态
+                    original_statuses.extend(reverse_mapping[mapped_status])
+                else:
+                    # 如果不在映射表中，说明本身就是原始状态（如"已关闭"、"已解决"等）
+                    if mapped_status in all_original_statuses:
+                        original_statuses.append(mapped_status)
+            
+            # 去重并筛选
+            if original_statuses:
+                original_statuses = list(set(original_statuses))
+                df = df[df[status_col].isin(original_statuses)]
     
     stats = {}
     current_date = datetime.now()
@@ -204,12 +230,23 @@ def get_module_list(df):
 
 def get_status_list(df):
     """
-    获取状态列表（去重），使用原始状态列
+    获取状态列表（去重），返回映射后的状态
+    新建、修复中、待修复等会合并显示为"待修复"
     """
-    status_col = '原始状态' if '原始状态' in df.columns else '状态'
-    if status_col in df.columns:
-        # 获取非空状态
-        statuses = df[status_col].dropna().unique().tolist()
+    # 复制数据框避免修改原始数据
+    df_copy = df.copy()
+    # 先应用状态映射
+    df_copy = apply_status_mapping(df_copy)
+    
+    # 使用映射后的状态列
+    if '映射后状态' in df_copy.columns:
+        # 获取非空状态（映射后的）
+        statuses = df_copy['映射后状态'].dropna().unique().tolist()
+        statuses = sorted(statuses)
+        return statuses
+    elif '状态' in df_copy.columns:
+        # 如果没有映射后状态，使用原始状态
+        statuses = df_copy['状态'].dropna().unique().tolist()
         statuses = sorted(statuses)
         return statuses
     return []
