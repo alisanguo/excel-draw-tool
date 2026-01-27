@@ -749,11 +749,9 @@
                 chartsSection.classList.add('show');
                 renderCharts(data.stats);
                 
-                // 如果有关键字归类生成的Excel文件，显示下载链接
-                if (data.output_excel_path) {
-                    showDownloadLink(data.output_excel_path);
-                } else {
-                    hideDownloadLink();
+                // 如果使用关键字匹配模式，提示文件已更新
+                if (data.file_updated) {
+                    console.log('原文件已更新，已添加关键字归类列');
                 }
             })
             .catch(error => {
@@ -1253,24 +1251,6 @@
             };
 
             charts.chart4.setOption(option);
-        }
-
-        // 显示下载链接
-        function showDownloadLink(filename) {
-            const container = document.getElementById('downloadLinkContainer');
-            const link = document.getElementById('downloadLink');
-            if (container && link) {
-                link.href = '/download/' + filename;
-                container.style.display = 'block';
-            }
-        }
-
-        // 隐藏下载链接
-        function hideDownloadLink() {
-            const container = document.getElementById('downloadLinkContainer');
-            if (container) {
-                container.style.display = 'none';
-            }
         }
 
         // 窗口大小改变时重新渲染图表
