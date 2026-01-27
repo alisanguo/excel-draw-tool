@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 import json
+import re
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -34,7 +35,7 @@ def apply_status_mapping(df):
         df['映射后状态'] = df['原始状态'].map(lambda x: STATUS_MAPPING.get(x, x))
     return df
 
-def analyze_defect_data(df, selected_modules=None, selected_statuses=None):
+def analyze_defect_data(df, selected_modules=None, selected_statuses=None, classification_mode='manual', keywords=None):
     """
     根据缺陷数据生成统计分析
     按照图片中的统计规则实现
@@ -193,21 +194,38 @@ def analyze_defect_data(df, selected_modules=None, selected_statuses=None):
     stats['daily_stats'] = daily_stats
     
     # 4. 缺陷分析归类统计（饼图）
-    # 支持多种列名：缺陷分析类型、缺陷分析归类、缺陷分类
-    analysis_col = None
-    for col_name in ['缺陷分析类型', '缺陷分析归类', '缺陷分类']:
-        if col_name in df.columns:
-            analysis_col = col_name
-            break
-    
-    if analysis_col and '标题' in df.columns:
+    if classification_mode == 'keyword' and keywords and '标题' in df.columns:
+        # 关键字匹配归类模式
         df_analysis = df.copy()
-        # 将空值替换为"（空）"，以便在图表中显示
-        df_analysis['分析类型_显示'] = df_analysis[analysis_col].fillna('（空）')
+        df_analysis['分析类型_显示'] = '其他'  # 默认归类为"其他"
+        
+        # 对每个关键字进行模糊匹配
+        for keyword in keywords:
+            if keyword and keyword.strip():  # 确保关键字不为空
+                keyword = keyword.strip()
+                # 使用str.contains进行模糊匹配（不区分大小写）
+                mask = df_analysis['标题'].astype(str).str.contains(keyword, case=False, na=False, regex=False)
+                df_analysis.loc[mask, '分析类型_显示'] = keyword
+        
         analysis_count = df_analysis.groupby('分析类型_显示')['标题'].count().to_dict()
         stats['analysis_type_count'] = analysis_count
     else:
-        stats['analysis_type_count'] = {}
+        # 人工归类模式（原有功能）
+        # 支持多种列名：缺陷分析类型、缺陷分析归类、缺陷分类
+        analysis_col = None
+        for col_name in ['缺陷分析类型', '缺陷分析归类', '缺陷分类']:
+            if col_name in df.columns:
+                analysis_col = col_name
+                break
+        
+        if analysis_col and '标题' in df.columns:
+            df_analysis = df.copy()
+            # 将空值替换为"（空）"，以便在图表中显示
+            df_analysis['分析类型_显示'] = df_analysis[analysis_col].fillna('（空）')
+            analysis_count = df_analysis.groupby('分析类型_显示')['标题'].count().to_dict()
+            stats['analysis_type_count'] = analysis_count
+        else:
+            stats['analysis_type_count'] = {}
     
     return stats
 
@@ -328,8 +346,12 @@ def analyze_data():
         if not selected_statuses:
             selected_statuses = uploaded_data[timestamp].get('statuses', [])
         
+        # 获取归类方式和关键字
+        classification_mode = data.get('classification_mode', 'manual')
+        keywords = data.get('keywords', [])
+        
         # 生成统计数据
-        stats = analyze_defect_data(df, selected_modules, selected_statuses)
+        stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
         
         # 转换为JSON可序列化的格式
         result = {
@@ -344,6 +366,79 @@ def analyze_data():
         
     except Exception as e:
         return jsonify({'error': f'分析数据时出错: {str(e)}'}), 500
+
+# 关键字文件路径
+KEYWORDS_FILE = 'keywords.json'
+
+def load_keywords():
+    """从文件加载关键字列表"""
+    if os.path.exists(KEYWORDS_FILE):
+        try:
+            with open(KEYWORDS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('keywords', [])
+        except:
+            return []
+    return []
+
+def save_keywords(keywords):
+    """保存关键字列表到文件"""
+    try:
+        with open(KEYWORDS_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'keywords': keywords}, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        return False
+
+@app.route('/api/keywords', methods=['GET'])
+def get_keywords():
+    """获取关键字列表"""
+    keywords = load_keywords()
+    return jsonify({'success': True, 'keywords': keywords})
+
+@app.route('/api/keywords', methods=['POST'])
+def add_keyword():
+    """添加关键字"""
+    try:
+        data = request.json
+        keyword = data.get('keyword', '').strip()
+        
+        if not keyword:
+            return jsonify({'error': '关键字不能为空'}), 400
+        
+        keywords = load_keywords()
+        if keyword not in keywords:
+            keywords.append(keyword)
+            if save_keywords(keywords):
+                return jsonify({'success': True, 'keywords': keywords})
+            else:
+                return jsonify({'error': '保存关键字失败'}), 500
+        else:
+            return jsonify({'error': '关键字已存在'}), 400
+    except Exception as e:
+        return jsonify({'error': f'添加关键字失败: {str(e)}'}), 500
+
+@app.route('/api/keywords', methods=['DELETE'])
+def delete_keyword():
+    """删除关键字"""
+    try:
+        data = request.json
+        keyword = data.get('keyword', '').strip()
+        
+        if not keyword:
+            return jsonify({'error': '关键字不能为空'}), 400
+        
+        keywords = load_keywords()
+        if keyword in keywords:
+            keywords.remove(keyword)
+            if save_keywords(keywords):
+                return jsonify({'success': True, 'keywords': keywords})
+            else:
+                return jsonify({'error': '保存关键字失败'}), 500
+        else:
+            return jsonify({'error': '关键字不存在'}), 400
+    except Exception as e:
+        return jsonify({'error': f'删除关键字失败: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import sys

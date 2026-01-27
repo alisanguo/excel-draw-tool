@@ -318,6 +318,33 @@
                 </div>
             </div>
             <div id="statusList" class="module-list"></div>
+            
+            <!-- 归类方式选择区域 -->
+            <div class="module-header" style="margin-top: 20px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+                <h3>📋 缺陷分析归类方式</h3>
+            </div>
+            <div style="padding: 15px; background: #f8f9ff; border-radius: 10px; margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="classificationMode" value="manual" checked style="margin-right: 8px; width: 18px; height: 18px;">
+                    <span style="font-size: 16px;">方式1：人工归类（使用Excel中的缺陷分析类型列）</span>
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="radio" name="classificationMode" value="keyword" style="margin-right: 8px; width: 18px; height: 18px;">
+                    <span style="font-size: 16px;">方式2：关键字匹配归类（根据标题关键字模糊匹配）</span>
+                </label>
+            </div>
+            
+            <!-- 关键字管理区域（仅在选择方式2时显示） -->
+            <div id="keywordManagement" style="display: none; margin-top: 20px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+                <div class="module-header">
+                    <h3>🔑 关键字管理</h3>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="keywordInput" placeholder="输入关键字..." style="flex: 1; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px;" onkeypress="if(event.key==='Enter') addKeyword()">
+                    <button class="btn" onclick="addKeyword()">添加关键字</button>
+                </div>
+                <div id="keywordList" class="module-list"></div>
+            </div>
         </div>
 
         <!-- 加载提示 -->
@@ -379,6 +406,7 @@
         let modules = [];
         let statuses = [];
         let charts = {};
+        let keywords = [];  // 关键字列表
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -453,6 +481,10 @@
                 // 默认全选并生成图表
                 selectAll();
                 selectAllStatus();
+                // 加载关键字列表
+                loadKeywords();
+                // 监听归类方式选择
+                setupClassificationModeListener();
                 generateCharts();
             })
             .catch(error => {
@@ -539,6 +571,127 @@
             updateSelectedStatusCount();
         }
 
+        // 设置归类方式选择监听器
+        function setupClassificationModeListener() {
+            const radios = document.querySelectorAll('input[name="classificationMode"]');
+            radios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const keywordManagement = document.getElementById('keywordManagement');
+                    if (this.value === 'keyword') {
+                        keywordManagement.style.display = 'block';
+                        loadKeywords();
+                    } else {
+                        keywordManagement.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // 加载关键字列表
+        function loadKeywords() {
+            fetch('/api/keywords')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        keywords = data.keywords || [];
+                        displayKeywords();
+                    }
+                })
+                .catch(error => {
+                    console.error('加载关键字失败:', error);
+                });
+        }
+
+        // 显示关键字列表
+        function displayKeywords() {
+            const keywordList = document.getElementById('keywordList');
+            keywordList.innerHTML = '';
+            if (keywords.length === 0) {
+                keywordList.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无关键字，请添加关键字</div>';
+                return;
+            }
+            keywords.forEach((keyword, index) => {
+                const item = document.createElement('div');
+                item.className = 'module-item';
+                item.style.display = 'flex';
+                item.style.justifyContent = 'space-between';
+                item.style.alignItems = 'center';
+                // 转义特殊字符，避免XSS和HTML解析错误
+                const escapedKeyword = keyword.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                item.innerHTML = `
+                    <span style="flex: 1;">${escapedKeyword}</span>
+                    <button class="btn" onclick="deleteKeywordByIndex(${index})" style="padding: 5px 15px; font-size: 12px; background: #ff6b6b;">删除</button>
+                `;
+                keywordList.appendChild(item);
+            });
+        }
+
+        // 通过索引删除关键字（避免特殊字符问题）
+        function deleteKeywordByIndex(index) {
+            if (index >= 0 && index < keywords.length) {
+                deleteKeyword(keywords[index]);
+            }
+        }
+
+        // 添加关键字
+        function addKeyword() {
+            const keywordInput = document.getElementById('keywordInput');
+            const keyword = keywordInput.value.trim();
+            
+            if (!keyword) {
+                alert('请输入关键字');
+                return;
+            }
+            
+            fetch('/api/keywords', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ keyword: keyword })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    keywords = data.keywords || [];
+                    keywordInput.value = '';
+                    displayKeywords();
+                } else {
+                    alert('添加失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('添加关键字失败: ' + error);
+            });
+        }
+
+        // 删除关键字
+        function deleteKeyword(keyword) {
+            if (!confirm(`确定要删除关键字"${keyword}"吗？`)) {
+                return;
+            }
+            
+            fetch('/api/keywords', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ keyword: keyword })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    keywords = data.keywords || [];
+                    displayKeywords();
+                } else {
+                    alert('删除失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('删除关键字失败: ' + error);
+            });
+        }
+
         // 生成图表
         function generateCharts() {
             const selectedModules = Array.from(
@@ -554,6 +707,19 @@
                 return;
             }
 
+            // 获取归类方式
+            const classificationMode = document.querySelector('input[name="classificationMode"]:checked').value;
+            
+            // 如果选择关键字匹配模式，检查是否有关键字
+            let selectedKeywords = [];
+            if (classificationMode === 'keyword') {
+                if (keywords.length === 0) {
+                    alert('请先添加至少一个关键字');
+                    return;
+                }
+                selectedKeywords = keywords;
+            }
+
             loading.classList.add('show');
             chartsSection.classList.remove('show');
 
@@ -565,7 +731,9 @@
                 body: JSON.stringify({
                     timestamp: timestamp,
                     modules: selectedModules,
-                    statuses: selectedStatuses
+                    statuses: selectedStatuses,
+                    classification_mode: classificationMode,
+                    keywords: selectedKeywords
                 })
             })
             .then(response => response.json())

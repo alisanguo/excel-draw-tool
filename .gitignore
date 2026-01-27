@@ -60,3 +60,6 @@ build/
 dist/
 *.tar.gz
 *.zip
+
+# User configuration
+keywords.json
