@@ -697,6 +697,24 @@
             });
         }
 
+        // 显示下载链接
+        function showDownloadLink(filename) {
+            const container = document.getElementById('downloadLinkContainer');
+            const link = document.getElementById('downloadLink');
+            if (container && link) {
+                link.href = '/download/' + filename;
+                container.style.display = 'block';
+            }
+        }
+
+        // 隐藏下载链接
+        function hideDownloadLink() {
+            const container = document.getElementById('downloadLinkContainer');
+            if (container) {
+                container.style.display = 'none';
+            }
+        }
+
         // 生成图表
         function generateCharts() {
             const selectedModules = Array.from(
