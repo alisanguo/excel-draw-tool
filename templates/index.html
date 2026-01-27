@@ -365,6 +365,11 @@
                 <!-- 图表2: 缺陷分析归类统计 -->
                 <div class="chart-container">
                     <div class="chart-title">缺陷分析归类统计</div>
+                    <div id="downloadLinkContainer" style="display: none; text-align: center; margin-bottom: 10px;">
+                        <a id="downloadLink" href="#" class="btn" style="text-decoration: none; display: inline-block;">
+                            📥 下载带关键字归类的Excel文件
+                        </a>
+                    </div>
                     <div id="chart2" class="chart"></div>
                 </div>
             </div>
@@ -748,6 +753,13 @@
                 // 显示图表
                 chartsSection.classList.add('show');
                 renderCharts(data.stats);
+                
+                // 如果有关键字归类生成的Excel文件，显示下载链接
+                if (data.output_excel_path) {
+                    showDownloadLink(data.output_excel_path);
+                } else {
+                    hideDownloadLink();
+                }
             })
             .catch(error => {
                 loading.classList.remove('show');
@@ -887,32 +899,73 @@
                 return;
             }
 
-            const pieData = Object.keys(data).map(key => ({
-                name: key,
-                value: data[key]
-            }));
+            // 计算总数和百分比
+            const total = Object.values(data).reduce((sum, count) => sum + count, 0);
+            const pieData = [];
+            
+            // 先计算所有百分比（保留一位小数）
+            const percentages = {};
+            const keys = Object.keys(data);
+            let sumPercent = 0;
+            
+            keys.forEach(key => {
+                const percent = (data[key] / total * 100);
+                percentages[key] = percent;
+                sumPercent += percent;
+            });
+            
+            // 调整百分比，确保总和为100.0%
+            // 使用四舍五入到一位小数，然后调整最后一个分类
+            const roundedPercents = {};
+            let roundedSum = 0;
+            
+            // 先对前n-1个分类四舍五入
+            for (let i = 0; i < keys.length - 1; i++) {
+                const rounded = Math.round(percentages[keys[i]] * 10) / 10;
+                roundedPercents[keys[i]] = rounded;
+                roundedSum += rounded;
+            }
+            
+            // 最后一个分类 = 100 - 前面所有分类的和
+            roundedPercents[keys[keys.length - 1]] = Math.round((100 - roundedSum) * 10) / 10;
+            
+            // 构建数据，使用调整后的百分比
+            keys.forEach(key => {
+                pieData.push({
+                    name: key,
+                    value: data[key],
+                    percent: roundedPercents[key].toFixed(1)
+                });
+            });
 
             const option = {
                 tooltip: {
                     trigger: 'item',
-                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                    formatter: function(params) {
+                        return params.seriesName + '<br/>' + 
+                               params.name + ': ' + params.value + ' (' + params.percent + '%)';
+                    }
                 },
                 legend: {
-                    orient: 'horizontal',
-                    bottom: 10,
-                    left: 'center',
-                    itemGap: 15,
+                    orient: 'vertical',
+                    right: 60,  // 距离右边60px，增加间距避免遮挡
+                    top: 'center',
+                    itemGap: 12,
                     itemWidth: 14,
                     itemHeight: 14,
                     textStyle: {
                         fontSize: 12
+                    },
+                    formatter: function(name) {
+                        const item = pieData.find(d => d.name === name);
+                        return item ? name + ': ' + item.percent + '%' : name;
                     }
                 },
                 series: [{
                     name: '缺陷分析类型',
                     type: 'pie',
                     radius: ['40%', '70%'],
-                    center: ['50%', '45%'],  // 向上移动，为底部图例留出空间
+                    center: ['35%', '50%'],  // 向左移动更多，为右侧图例留出更多空间
                     avoidLabelOverlap: false,
                     itemStyle: {
                         borderRadius: 10,
@@ -921,7 +974,9 @@
                     },
                     label: {
                         show: true,
-                        formatter: '{b}: {d}%',
+                        formatter: function(params) {
+                            return params.name + ': ' + params.percent + '%';
+                        },
                         position: 'outside'
                     },
                     labelLine: {
@@ -936,7 +991,10 @@
                             fontWeight: 'bold'
                         }
                     },
-                    data: pieData
+                    data: pieData.map(item => ({
+                        name: item.name,
+                        value: item.value
+                    }))
                 }]
             };
 

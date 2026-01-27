@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import json
 import re
+import random
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -197,18 +198,28 @@ def analyze_defect_data(df, selected_modules=None, selected_statuses=None, class
     if classification_mode == 'keyword' and keywords and '标题' in df.columns:
         # 关键字匹配归类模式
         df_analysis = df.copy()
-        df_analysis['分析类型_显示'] = '其他'  # 默认归类为"其他"
+        df_analysis['关键字归类'] = '其他'  # 默认归类为"其他"
         
-        # 对每个关键字进行模糊匹配
-        for keyword in keywords:
-            if keyword and keyword.strip():  # 确保关键字不为空
-                keyword = keyword.strip()
-                # 使用str.contains进行模糊匹配（不区分大小写）
-                mask = df_analysis['标题'].astype(str).str.contains(keyword, case=False, na=False, regex=False)
-                df_analysis.loc[mask, '分析类型_显示'] = keyword
+        # 对每一行进行关键字匹配
+        for idx in df_analysis.index:
+            matched_keywords = []
+            title = str(df_analysis.loc[idx, '标题']) if pd.notna(df_analysis.loc[idx, '标题']) else ''
+            
+            # 检查每个关键字是否匹配
+            for keyword in keywords:
+                if keyword and keyword.strip():
+                    keyword = keyword.strip()
+                    if keyword.lower() in title.lower():
+                        matched_keywords.append(keyword)
+            
+            # 如果匹配到多个关键字，随机选择一个
+            if matched_keywords:
+                df_analysis.loc[idx, '关键字归类'] = random.choice(matched_keywords)
         
-        analysis_count = df_analysis.groupby('分析类型_显示')['标题'].count().to_dict()
+        analysis_count = df_analysis.groupby('关键字归类')['标题'].count().to_dict()
         stats['analysis_type_count'] = analysis_count
+        # 保存带关键字归类的数据框，用于后续导出Excel
+        stats['_df_with_keyword_classification'] = df_analysis
     else:
         # 人工归类模式（原有功能）
         # 支持多种列名：缺陷分析类型、缺陷分析归类、缺陷分类
@@ -353,14 +364,29 @@ def analyze_data():
         # 生成统计数据
         stats = analyze_defect_data(df, selected_modules, selected_statuses, classification_mode, keywords)
         
-        # 转换为JSON可序列化的格式
+        # 如果是关键字匹配模式，保存带关键字归类的Excel文件
+        if classification_mode == 'keyword' and keywords and '_df_with_keyword_classification' in stats:
+            df_with_classification = stats['_df_with_keyword_classification']
+            # 保存到uploads目录
+            output_filename = f"defect_data_with_keyword_{timestamp}.xlsx"
+            output_filepath = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+            df_with_classification.to_excel(output_filepath, index=False, engine='openpyxl')
+            # 保存输出文件路径，供前端下载
+            stats['_output_excel_path'] = output_filename
+        
+        # 转换为JSON可序列化的格式（移除不能序列化的DataFrame）
+        result_stats = {k: v for k, v in stats.items() if not k.startswith('_df_')}
         result = {
             'success': True,
-            'stats': stats,
+            'stats': result_stats,
             'selected_modules': selected_modules,
             'selected_statuses': selected_statuses,
             'filtered_records': len(df)
         }
+        
+        # 如果有输出Excel文件，添加下载路径
+        if '_output_excel_path' in stats:
+            result['output_excel_path'] = stats['_output_excel_path']
         
         return jsonify(result)
         
@@ -439,6 +465,19 @@ def delete_keyword():
             return jsonify({'error': '关键字不存在'}), 400
     except Exception as e:
         return jsonify({'error': f'删除关键字失败: {str(e)}'}), 500
+
+@app.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    """下载生成的Excel文件"""
+    try:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(filepath) and filename.startswith('defect_data_with_keyword_'):
+            from flask import send_file
+            return send_file(filepath, as_attachment=True, download_name=filename)
+        else:
+            return jsonify({'error': '文件不存在'}), 404
+    except Exception as e:
+        return jsonify({'error': f'下载文件失败: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import sys
