@@ -11,10 +11,27 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# 虚拟环境目录
+VENV_DIR="venv"
+
+# 创建虚拟环境（如果不存在）
+if [ ! -d "$VENV_DIR" ]; then
+    echo "正在创建虚拟环境..."
+    python3 -m venv "$VENV_DIR"
+    echo "虚拟环境创建完成"
+    echo ""
+fi
+
+# 激活虚拟环境
+echo "激活虚拟环境..."
+source "$VENV_DIR/bin/activate"
+
 # 检查是否已安装依赖
-if ! python3 -c "import flask" 2>/dev/null; then
+if ! python -c "import flask" 2>/dev/null; then
     echo "正在安装依赖..."
-    pip3 install -r requirements.txt
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    echo "依赖安装完成"
     echo ""
 fi
 
@@ -23,5 +40,6 @@ echo "访问地址: http://localhost:5000"
 echo "按 Ctrl+C 停止服务"
 echo ""
 
-python3 app.py
+# 在虚拟环境中运行应用
+python app.py
 
