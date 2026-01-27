@@ -21,12 +21,12 @@
             font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 10px;  /* 左右padding减半，从20px改为10px */
             overflow-x: hidden;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1800px;  /* 增加最大宽度，从1400px改为1800px */
             width: 100%;
             margin: 0 auto;
             overflow-x: hidden;
@@ -964,7 +964,7 @@
                 series: [{
                     name: '缺陷分析类型',
                     type: 'pie',
-                    radius: ['40%', '70%'],
+                    radius: ['50%', '80%'],  // 增加饼图大小，从40%-70%改为50%-80%
                     center: ['45%', '50%'],  // 居中偏右，为左右两侧标签留出空间
                     avoidLabelOverlap: true,  // 启用标签重叠避免
                     itemStyle: {
@@ -982,8 +982,8 @@
                     },
                     labelLine: {
                         show: true,
-                        length: 20,  // 增加引导线长度，避免左侧遮挡
-                        length2: 15
+                        length: 25,  // 进一步增加引导线长度，从20改为25
+                        length2: 20  // 增加第二段引导线长度，从15改为20
                     },
                     emphasis: {
                         label: {
